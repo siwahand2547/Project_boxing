@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+    <%- include('partials/navbar') %>
+    
+    <h1>เพิ่มนักมวย</h1>
+    
+    <form action="/fighters/add" method="POST" enctype="multipart/form-data">
+        <label>ชื่อ:</label>
+        <input type="text" name="name" required><br>
+        <label>ค่าย:</label>
+        <input type="text" name="camp" required><br>
+        <label>รุ่น:</label>
+        <input type="text" name="weight_class" required><br>
+        <label>รูปภาพ:</label>
+        <input type="file" name="photo"><br>
+        <button type="submit">บันทึก</button>
+      </form>
+      
+</body>
+</html>

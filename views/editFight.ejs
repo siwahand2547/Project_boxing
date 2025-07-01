@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+    <%- include('partials/navbar') %>
+    <h1>แก้ไขประวัติการชก</h1>
+    <form action="/fights/edit/<%= fight.id %>" method="POST">
+      <label>นักมวย 1:</label><br>
+      <select name="fighter1_id">
+        <% fighters.forEach(f => { %>
+          <option value="<%= f.id %>" <%= fight.fighter1_id === f.id ? 'selected' : '' %>><%= f.name %></option>
+        <% }) %>
+      </select><br>
+    
+      <label>นักมวย 2:</label><br>
+      <select name="fighter2_id">
+        <% fighters.forEach(f => { %>
+          <option value="<%= f.id %>" <%= fight.fighter2_id === f.id ? 'selected' : '' %>><%= f.name %></option>
+        <% }) %>
+      </select><br>
+    
+      <label>ผู้ชนะ:</label><br>
+      <select name="winner_id">
+        <option value="">-- ยังไม่มีผล --</option>
+        <% fighters.forEach(f => { %>
+          <option value="<%= f.id %>" <%= fight.winner_id === f.id ? 'selected' : '' %>><%= f.name %></option>
+        <% }) %>
+      </select><br>
+    
+      <label>วันที่:</label><br>
+      <input type="date" name="fight_date" value="<%= fight.fight_date.toISOString().split('T')[0] %>"><br>
+    
+      <label>คำอธิบาย:</label><br>
+      <textarea name="description"><%= fight.description %></textarea><br>
+    
+      <button type="submit">อัปเดต</button>
+    </form>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<form id="connectForm">
+    <label>COM Port: </label>
+    <input type="text" name="com6" placeholder="เช่น COM6" required />
+    <button type="submit">เชื่อมต่อ</button>
+  </form>
+  
+  <script>
+    const socket = io();
+  
+    const connectForm = document.getElementById('connectForm');
+    const statusDiv = document.getElementById('status');
+    const dataTableBody = document.getElementById('dataTableBody');
+  
+    connectForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(connectForm);
+      const com6 = formData.get('com6');
+  
+      statusDiv.textContent = 'กำลังเชื่อมต่อ...';
+  
+      try {
+        const res = await fetch('/test/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ com6 })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusDiv.textContent = 'เชื่อมต่อ COM6 สำเร็จ';
+        } else {
+          statusDiv.textContent = 'เชื่อมต่อ COM6 ล้มเหลว';
+        }
+      } catch {
+        statusDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+      }
+    });
+  
+    socket.on('com6Data', (data) => {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.textContent = data;
+      tr.appendChild(td);
+      dataTableBody.prepend(tr);
+    });
+  </script>
+  

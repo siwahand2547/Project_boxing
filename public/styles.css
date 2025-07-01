@@ -1,22 +1,25 @@
+/* public/styles.css */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f9f9f9;
-    margin: 0;
-    padding: 20px;
-  }
-  
-  .container {
-    max-width: 800px;
-    margin: auto;
-    background-color: white;
-    padding: 20px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    border-radius: 8px;
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #f1f1f1;
+    margin: 20px;
   }
   
   h1 {
-    text-align: center;
-    color: #333;
+    color: #ffffff;
+    border-bottom: 2px solid #f1f1f1;
+    padding-bottom: 10px;
+  }
+  
+  a {
+    color: #f1f1f1;
+    text-decoration: none;
+    margin-right: 10px;
+  }
+  
+  a:hover {
+    text-decoration: underline;
   }
   
   table {
@@ -25,18 +28,50 @@ body {
     margin-top: 20px;
   }
   
+  table, th, td {
+    border: 1px solid #444;
+  }
+  
   th, td {
-    padding: 12px;
-    border: 1px solid #ddd;
+    padding: 10px;
     text-align: left;
   }
   
   th {
-    background-color: #007bff;
-    color: white;
+    background-color: #1e1e1e;
   }
   
-  tr:nth-child(even) {
-    background-color: #f2f2f2;
+  form input, form select, form textarea, form button {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0 15px 0;
+    background-color: #1e1e1e;
+    color: #f1f1f1;
+    border: 1px solid #444;
   }
   
+  form button {
+    background-color: #444;
+    cursor: pointer;
+  }
+  
+  form button:hover {
+    background-color: #666;
+  }
+  
+  nav a {
+    font-weight: bold;
+    margin-right: 15px;
+    color: #ffffff;
+  }
+  
+  nav a:hover {
+    color: #bbbbbb;
+  }
+  
+  /* เพิ่มสำหรับ form ปรับขนาด */
+  form label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+  }

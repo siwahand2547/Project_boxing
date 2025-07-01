@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+    <%- include('partials/navbar') %>
+
+<h1>นักมวยทั้งหมด</h1>
+<a href="/fighters/add">➕ เพิ่มนักมวย</a>
+
+<table border="1">
+  <tr>
+    <th>รูป</th>
+    <th>ชื่อ</th>
+    <th>ค่าย</th>
+    <th>รุ่น</th>
+    <th>การจัดการ</th>
+  </tr>
+  <% fighters.forEach(f => { %>
+    <tr>
+      <td>
+        <% if (f.photo) { %>
+          <img src="<%= f.photo %>" width="60" alt="Photo">
+        <% } else { %>
+          ไม่มีรูป
+        <% } %>
+      </td>
+      <td><%= f.name %></td>
+      <td><%= f.camp %></td>
+      <td><%= f.weight_class %></td>
+      <td>
+        <a href="/fighters/edit/<%= f.id %>">✏️ แก้ไข</a>
+        <form method="POST" action="/fighters/delete/<%= f.id %>" style="display:inline">
+          <button type="submit">🗑️ ลบ</button>
+        </form>
+      </td>
+    </tr>
+  <% }) %>
+</table>
+
+</body>
+</html>

@@ -1,11 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>สร้างการแข่งขัน</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  body { font-family: Arial; background: #121212; color: #eee; }
+  label { display: block; margin-top: 10px; }
+  select, input { width: 200px; padding: 5px; margin-top: 5px; }
+  button { margin-top: 15px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  .status { margin-top: 10px; }
+  .connected { color: #0f0; }
+  .disconnected { color: #f00; }
+</style>
 </head>
 <body>
-    
+
+<h1>สร้างการแข่งขันใหม่</h1>
+
+<form id="connectForm">
+  <label for="com4">เชื่อมต่อ COM4 (นักชกคนที่ 1):</label>
+  <input type="text" id="com4" name="com4" value="COM4" required />
+  
+  <label for="com5">เชื่อมต่อ COM5 (นักชกคนที่ 2):</label>
+  <input type="text" id="com5" name="com5" value="COM5" required />
+  
+  <button type="submit">เชื่อมต่อ Bluetooth</button>
+</form>
+
+<div class="status">
+  COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
+  COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span>
+</div>
+
+<form id="matchForm" method="POST" action="/match/create">
+  <label for="fighter1">เลือกนักชกคนที่ 1:</label>
+  <select id="fighter1" name="fighter1_id" required>
+    <% fighters.forEach(f => { %>
+      <option value="<%= f.id %>"><%= f.name %></option>
+    <% }) %>
+  </select>
+
+  <label for="fighter2">เลือกนักชกคนที่ 2:</label>
+  <select id="fighter2" name="fighter2_id" required>
+    <% fighters.forEach(f => { %>
+      <option value="<%= f.id %>"><%= f.name %></option>
+    <% }) %>
+  </select>
+
+  <button type="submit" id="createMatchBtn" disabled>สร้างการแข่งขัน</button>
+</form>
+
+<script>
+  const socket = io();
+
+  // สถานะเชื่อมต่อเริ่มต้น
+  let isCOM4Connected = false;
+  let isCOM5Connected = false;
+
+  // อัปเดตสถานะการเชื่อมต่อบน UI
+  function updateStatus() {
+    document.getElementById('statusCOM4').textContent = isCOM4Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+    document.getElementById('statusCOM4').className = isCOM4Connected ? 'connected' : 'disconnected';
+    document.getElementById('statusCOM5').textContent = isCOM5Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+    document.getElementById('statusCOM5').className = isCOM5Connected ? 'connected' : 'disconnected';
+    // เปิดปุ่มสร้างการแข่งขันก็ต่อเมื่อเชื่อมต่อทั้งสองแล้ว
+    document.getElementById('createMatchBtn').disabled = !(isCOM4Connected && isCOM5Connected);
+  }
+
+  updateStatus();
+
+  // เมื่อรับสถานะจาก server ว่าคอมพอร์ตไหนเชื่อมต่ออยู่บ้าง
+  socket.on('connectionStatus', status => {
+    isCOM4Connected = status.com4;
+    isCOM5Connected = status.com5;
+    updateStatus();
+  });
+
+  // ฟอร์มเชื่อมต่อ Bluetooth
+  document.getElementById('connectForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const com4 = document.getElementById('com4').value;
+    const com5 = document.getElementById('com5').value;
+
+    fetch('/match/connect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ com4, com5 })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        alert('กำลังเชื่อมต่อ Bluetooth...');
+      } else {
+        alert('เชื่อมต่อล้มเหลว: ' + data.message);
+      }
+    })
+    .catch(err => alert('เกิดข้อผิดพลาดในการเชื่อมต่อ'));
+  });
+</script>
+
 </body>
 </html>

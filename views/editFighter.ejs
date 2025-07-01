@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+<h1>แก้ไขข้อมูลนักมวย</h1>
+<form action="/fighters/edit/<%= fighter.id %>" method="POST" enctype="multipart/form-data">
+  <label>ชื่อ:</label>
+  <input type="text" name="name" value="<%= fighter.name %>" required><br>
+  <label>ค่าย:</label>
+  <input type="text" name="camp" value="<%= fighter.camp %>" required><br>
+  <label>รุ่น:</label>
+  <input type="text" name="weight_class" value="<%= fighter.weight_class %>" required><br>
+  
+  <% if (fighter.photo) { %>
+    <p>รูปภาพปัจจุบัน:</p>
+    <img src="<%= fighter.photo %>" width="150" alt="รูปนักมวย"><br>
+  <% } %>
+
+  <label>เปลี่ยนรูปภาพ (ถ้ามี):</label>
+  <input type="file" name="photo"><br>
+
+  <button type="submit">อัปเดต</button>
+</form>
+
+</body>
+</html>

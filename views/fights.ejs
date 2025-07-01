@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    <%- include('partials/navbar') %>
+    <h1>ประวัติการชก</h1>
+    <a href="/fights/add">➕ เพิ่มการชก</a>
+    <table border="1">
+      <tr>
+        <th>วันที่</th>
+        <th>นักมวย 1</th>
+        <th>นักมวย 2</th>
+        <th>ผู้ชนะ</th>
+        <th>คำอธิบาย</th>
+        <th>จัดการ</th>
+      </tr>
+      <% fights.forEach(fight => { %>
+        <tr>
+          <td><%= fight.fight_date %></td>
+          <td><%= fight.fighter1 %></td>
+          <td><%= fight.fighter2 %></td>
+          <td><%= fight.winner || 'ยังไม่มีผล' %></td>
+          <td><%= fight.description %></td>
+          <td>
+            <a href="/fights/edit/<%= fight.id %>">✏️ แก้ไข</a>
+            <form action="/fights/delete/<%= fight.id %>" method="POST" style="display:inline">
+              <button type="submit">🗑️ ลบ</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </table>
+</body>
+</html>

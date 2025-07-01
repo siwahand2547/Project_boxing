@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <% if (fighter.photo) { %>
+        <img src="<%= fighter.photo %>" width="200">
+      <% } %>
+<h1>โปรไฟล์: <%= fighter.name %></h1>
+<p><strong>ค่าย:</strong> <%= fighter.camp %></p>
+<p><strong>รุ่น:</strong> <%= fighter.weight_class %></p>
+
+<h2>✅ ชนะ</h2>
+<% if (wins.length === 0) { %>
+  <p>ยังไม่มีข้อมูลการชนะ</p>
+<% } else { %>
+  <ul>
+    <% wins.forEach(w => { %>
+      <li><%= w.fight_date %> - ชนะ <%= w.opponent %> (<%= w.description %>)</li>
+    <% }) %>
+  </ul>
+<% } %>
+
+<h2>❌ แพ้</h2>
+<% if (losses.length === 0) { %>
+  <p>ยังไม่มีข้อมูลการแพ้</p>
+<% } else { %>
+  <ul>
+    <% losses.forEach(l => { %>
+      <li><%= l.fight_date %> - แพ้ <%= l.opponent %> (<%= l.description %>)</li>
+    <% }) %>
+  </ul>
+<% } %>
+</body>
+</html>

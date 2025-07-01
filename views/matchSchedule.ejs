@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ตารางการแข่งขัน</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  body { font-family: Arial; background: #121212; color: #eee; padding: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+  th, td { border: 1px solid #555; padding: 8px; text-align: center; }
+  th { background-color: #333; }
+  .bt-data { background: #222; padding: 10px; max-height: 150px; overflow-y: auto; font-family: monospace; }
+  .bt-port { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>ตารางการแข่งขัน</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>คู่ที่</th>
+      <th>วันที่แข่งขัน</th>
+      <th>นักชกคนที่ 1</th>
+      <th>นักชกคนที่ 2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% fights.forEach((fight, index) => { %>
+      <tr>
+        <td><%= index + 1 %></td>
+        <td><%= fight.fight_date.toISOString().slice(0, 10) %></td>
+        <td><%= fight.fighter1 %></td>
+        <td><%= fight.fighter2 %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<h2>ข้อมูล Bluetooth Real-time</h2>
+<div id="btData" class="bt-data">
+  <p>รอข้อมูลจากอุปกรณ์...</p>
+</div>
+
+<script>
+  const socket = io();
+  const btDataDiv = document.getElementById('btData');
+
+  socket.on('btData', ({ port, data }) => {
+    // สร้างข้อความใหม่และเพิ่มเข้า div
+    const p = document.createElement('p');
+    p.innerHTML = `<span class="bt-port">${port}:</span> ${data}`;
+    btDataDiv.appendChild(p);
+
+    // เลื่อน scrollbar ลงล่างสุดเวลาเพิ่มข้อมูลใหม่
+    btDataDiv.scrollTop = btDataDiv.scrollHeight;
+  });
+</script>
+
+</body>
+</html>
