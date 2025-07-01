@@ -1,22 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Test COM6</title>
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+  <h1>ข้อมูลที่รับจาก COM6</h1>
 
-  <h1>เชื่อมต่อ COM6</h1>
-  <form id="connectForm">
-    <label>COM Port: </label>
-    <input type="text" name="com6" placeholder="เช่น COM6" required />
-    <button type="submit">เชื่อมต่อ</button>
-  </form>
-
-  <div id="status" style="margin-top: 10px; font-weight: bold;"></div>
-
-  <h3>ข้อมูลที่รับจาก COM6</h3>
   <table border="1" style="margin-top: 10px; width: 100%; text-align: center;">
     <thead>
       <tr>
@@ -30,43 +21,16 @@
 
   <script>
     const socket = io();
-
-    const connectForm = document.getElementById('connectForm');
-    const statusDiv = document.getElementById('status');
     const dataTableBody = document.getElementById('dataTableBody');
 
-    connectForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(connectForm);
-      const com6 = formData.get('com6');
-
-      statusDiv.textContent = 'กำลังเชื่อมต่อ...';
-
-      try {
-        const res = await fetch('/test/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ com6 })
-        });
-        const data = await res.json();
-        if (data.success) {
-          statusDiv.textContent = 'เชื่อมต่อ COM6 สำเร็จ';
-        } else {
-          statusDiv.textContent = 'เชื่อมต่อ COM6 ล้มเหลว';
-        }
-      } catch {
-        statusDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
-      }
-    });
-
+    // ฟัง event 'com6Data' จาก server มาแสดงในตารางทันที
     socket.on('com6Data', (data) => {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.textContent = data;
       tr.appendChild(td);
-      dataTableBody.prepend(tr); // เพิ่มด้านบนสุด
+      dataTableBody.prepend(tr); // เพิ่มข้อมูลใหม่ที่ด้านบน
     });
   </script>
-
 </body>
 </html>
