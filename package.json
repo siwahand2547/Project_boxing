@@ -1,10 +1,11 @@
 {
   "name": "project_end",
   "version": "1.0.0",
-  "description": "",
+  "description": "Project-final",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -15,5 +16,13 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "mysql2": "^3.14.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siwahand2547/Project_boxing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/siwahand2547/Project_boxing/issues"
+  },
+  "homepage": "https://github.com/siwahand2547/Project_boxing#readme"
 }
