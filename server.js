@@ -5,6 +5,13 @@ const path = require('path');
 
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
+function setupParser(port, label) {
+  const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+  parser.on('data', (data) => {
+    console.log(`[${label}] data received:`, data);  // แสดงข้อมูลใน terminal
+    io.emit('com6Data', data); // ส่งต่อไป client ผ่าน socket.io
+  });
+}
 
 const socketIo = require('socket.io');
 const app = express();
