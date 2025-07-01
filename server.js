@@ -265,9 +265,9 @@ app.get('/match/create', (req, res) => {
   });
 
 //-------------------------------------ตัวtest
-app.get('/test', (req, res) => {
-    res.render('test', { isCOM6Connected });
-  });
+  app.get('/test', (req, res) => {
+      res.render('test', { isCOM6Connected });
+    });
   
   // API เชื่อมต่อ COM6
   app.post('/test/connect', (req, res) => {
