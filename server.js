@@ -265,37 +265,30 @@ app.get('/match/create', (req, res) => {
   });
 
 //-------------------------------------ตัวtest
-app.get('/test', (req, res) => {
-    res.render('test', { isCOM6Connected });
-  });
-  
-  // API เชื่อมต่อ COM6
-  app.post('/test/connect', (req, res) => {
-    const { com6 } = req.body;
-  
-    if (portCOM6 && portCOM6.isOpen) {
-      portCOM6.close();
-      isCOM6Connected = false;
+app.post('/test/connect', (req, res) => {
+  const com6 = req.body.com6;
+
+  if (portCOM6) portCOM6.close();
+
+  portCOM6 = new SerialPort({ path: com6, baudRate: 9600 }, (err) => {
+    if (err) {
+      console.error('❌ เชื่อมต่อ COM6 ไม่สำเร็จ:', err.message);
+      return res.json({ success: false });
     }
-  
-    portCOM6 = new SerialPort({ path: com6, baudRate: 9600 }, (err) => {
-      if (err) {
-        isCOM6Connected = false;
-        return res.status(500).json({ success: false, message: 'COM6 connect failed' });
-      }
-      isCOM6Connected = true;
-      setupParser(portCOM6);
-      res.json({ success: true, message: 'COM6 connected' });
-    });
-  });
-  
-  function setupParser(port) {
-    const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+    // ✅ เชื่อมต่อสำเร็จ ส่งกลับ success
+    console.log('✅ เชื่อมต่อ COM6 สำเร็จ');
+
+    const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
     parser.on('data', (data) => {
-      console.log('COM6 data:', data);
-      io.emit('com6Data', data);  // ส่งข้อมูล realtime ผ่าน socket.io
+      console.log('📦 COM6:', data);
+      io.emit('com6Data', data);
     });
-  }
+
+    return res.json({ success: true }); // <-- สำคัญมาก!
+  });
+});
+
     
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
