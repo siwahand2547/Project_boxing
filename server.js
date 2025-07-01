@@ -5,13 +5,7 @@ const path = require('path');
 
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
-function setupParser(port, label) {
-  const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-  parser.on('data', (data) => {
-    console.log(`[${label}] data received:`, data);  // แสดงข้อมูลใน terminal
-    io.emit('com6Data', data); // ส่งต่อไป client ผ่าน socket.io
-  });
-}
+
 
 const socketIo = require('socket.io');
 const app = express();
@@ -41,6 +35,7 @@ let isCOM5Connected = false;
 let portCOM6;
 let isCOM6Connected = false;
 
+
 // ฟังก์ชันตั้งค่า Parser อ่านข้อมูลจาก COM ports
 function setupParser(port, label) {
     const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
@@ -49,6 +44,10 @@ function setupParser(port, label) {
       io.emit('btData', { port: label, data }); // ส่งข้อมูล realtime ไป client ผ่าน socket.io
     });
   }
+portCOM6 = new SerialPort({ path: 'COM6', baudRate: 115200 }, (err) => {
+    if (err) return console.error('Error opening COM6:', err);
+    setupParser(portCOM6);
+  });
 
 // Home
 app.get('/', (req, res) => res.redirect('/fighters'));
