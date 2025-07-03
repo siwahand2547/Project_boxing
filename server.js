@@ -6,7 +6,6 @@ const path = require('path');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
-
 const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
@@ -35,7 +34,6 @@ let isCOM5Connected = false;
 let portCOM6;
 let isCOM6Connected = false;
 
-
 // ฟังก์ชันตั้งค่า Parser อ่านข้อมูลจาก COM ports
 function setupParser(port, label) {
     const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
@@ -44,10 +42,6 @@ function setupParser(port, label) {
       io.emit('btData', { port: label, data }); // ส่งข้อมูล realtime ไป client ผ่าน socket.io
     });
   }
-portCOM6 = new SerialPort({ path: 'COM6', baudRate: 115200 }, (err) => {
-    if (err) return console.error('Error opening COM6:', err);
-    setupParser(portCOM6);
-  });
 
 // Home
 app.get('/', (req, res) => res.redirect('/fighters'));
@@ -271,44 +265,66 @@ app.get('/match/create', (req, res) => {
   });
 
 //-------------------------------------ตัวtest
-  app.get('/test', (req, res) => {
-      res.render('test', { isCOM6Connected });
-    });
-  
-  // API เชื่อมต่อ COM6
-  app.post('/test/connect', (req, res) => {
-    const com6 = req.body.com6;
-  
-    if (portCOM6) portCOM6.close();
-  
-    portCOM6 = new SerialPort({ path: com6, baudRate: 9600 }, (err) => {
-      if (err) {
-        console.error('❌ เชื่อมต่อ COM6 ไม่สำเร็จ:', err.message);
-        return res.json({ success: false });
-      }
-  
-      // ✅ เชื่อมต่อสำเร็จ ส่งกลับ success
-      console.log('✅ เชื่อมต่อ COM6 สำเร็จ');
-  
-      const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-      parser.on('data', (data) => {
-        console.log('📦 COM6:', data);
-        io.emit('com6Data', data);
-      });
-  
-      return res.json({ success: true }); // <-- สำคัญมาก!
-    });
+app.get('/test', (req, res) => {
+    res.render('test', { isCOM6Connected });
   });
-  
-  
-  function setupParser(port) {
-    const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-    parser.on('data', (data) => {
-      console.log('COM6 data:', data);
-      io.emit('com6Data', data);  // ส่งข้อมูล realtime ผ่าน socket.io
+// ======== เชื่อมต่อ COM6 ทันทีเมื่อรัน server =========
+const COM6_PORT = 'COM6'; // <-- ใส่พอร์ตของคุณตรงนี้ เช่น COM6, COM7
+let bufferValues = [];
+let waitingBelowThreshold = false;
+let lastReceiveTime = Date.now();
+
+function setupCOM6() {
+  portCOM6 = new SerialPort({ path: COM6_PORT, baudRate: 9600 }, (err) => {
+    if (err) {
+      console.error('❌ ไม่สามารถเชื่อมต่อ COM6 อัตโนมัติ:', err.message);
+      return;
+    }
+
+    isCOM6Connected = true;
+    console.log('✅ เชื่อมต่อ COM6 อัตโนมัติสำเร็จ');
+
+    const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+
+    parser.on('data', (rawData) => {
+      const data = parseInt(rawData);
+
+      console.log(data);
+
+      if (isNaN(data)) return;
+
+
+      lastReceiveTime = Date.now();
+
+      if (data >= 1000) {
+        bufferValues.push(data);
+        waitingBelowThreshold = true;
+      } else if (waitingBelowThreshold && bufferValues.length > 0) {
+        const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
+        console.log('✅ ค่าเฉลี่ยที่เก็บได้:', avg);
+        io.emit('com6Data', avg);
+        bufferValues = [];
+        waitingBelowThreshold = false;
+      }
     });
-  }
+
+    setInterval(() => {
+      const now = Date.now();
+      if (bufferValues.length > 0 && now - lastReceiveTime > 2000) {
+        const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
+        console.log('⏱️ Timeout - ค่าเฉลี่ยจาก COM6:', avg);
+        io.emit('com6Data', avg);
+        bufferValues = [];
+        waitingBelowThreshold = false;
+      }
+    }, 500);
+  });
+}
+
+
     
+setupCOM6();
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));
