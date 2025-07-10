@@ -212,31 +212,31 @@ app.get('/match/create', (req, res) => {
       res.render('createMatch', { fighters });
     });
   });
-  app.post('/match/connect', (req, res) => {
-    const { com4, com5 } = req.body;
+  // app.post('/match/connect', (req, res) => {
+  //   const { com4, com5 } = req.body;
   
-    if (portCOM4) portCOM4.close();
-    portCOM4 = new SerialPort({ path: com4, baudRate: 9600 }, (err) => {
-      if (err) {
-        isCOM4Connected = false;
-        return res.status(500).json({ success: false, message: 'COM4 connect failed' });
-      }
-      isCOM4Connected = true;
-      setupParser(portCOM4, 'COM4');
-    });
+  //   if (portCOM4) portCOM4.close();
+  //   portCOM4 = new SerialPort({ path: com4, baudRate: 9600 }, (err) => {
+  //     if (err) {
+  //       isCOM4Connected = false;
+  //       return res.status(500).json({ success: false, message: 'COM4 connect failed' });
+  //     }
+  //     isCOM4Connected = true;
+  //     setupParser(portCOM4, 'COM4');
+  //   });
   
-    if (portCOM5) portCOM5.close();
-    portCOM5 = new SerialPort({ path: com5, baudRate: 9600 }, (err) => {
-      if (err) {
-        isCOM5Connected = false;
-        return res.status(500).json({ success: false, message: 'COM5 connect failed' });
-      }
-      isCOM5Connected = true;
-      setupParser(portCOM5, 'COM5');
-    });
+  //   if (portCOM5) portCOM5.close();
+  //   portCOM5 = new SerialPort({ path: com5, baudRate: 9600 }, (err) => {
+  //     if (err) {
+  //       isCOM5Connected = false;
+  //       return res.status(500).json({ success: false, message: 'COM5 connect failed' });
+  //     }
+  //     isCOM5Connected = true;
+  //     setupParser(portCOM5, 'COM5');
+  //   });
   
-    res.json({ success: true, message: 'Connecting to COM ports...' });
-  });
+  //   res.json({ success: true, message: 'Connecting to COM ports...' });
+  // });
   app.post('/match/create', (req, res) => {
     const { fighter1_id, fighter2_id } = req.body;
     if (!isCOM4Connected || !isCOM5Connected) {
@@ -269,33 +269,93 @@ app.get('/test', (req, res) => {
     res.render('test', { isCOM6Connected });
   });
 // ======== เชื่อมต่อ COM6 ทันทีเมื่อรัน server =========
-const COM6_PORT = 'COM6'; // <-- ใส่พอร์ตของคุณตรงนี้ เช่น COM6, COM7
+// const COM6_PORT = 'COM6'; // <-- ใส่พอร์ตของคุณตรงนี้ เช่น COM6, COM7
+// let bufferValues = [];
+// let waitingBelowThreshold = false;
+// let lastReceiveTime = Date.now();
+
+// function setupCOM6() {
+//   portCOM6 = new SerialPort({ path: COM6_PORT, baudRate: 9600 }, (err) => {
+//     if (err) {
+//       console.error('❌ ไม่สามารถเชื่อมต่อ COM6 อัตโนมัติ:', err.message);
+//       return;
+//     }
+
+//     isCOM6Connected = true;
+//     console.log('✅ เชื่อมต่อ COM6 อัตโนมัติสำเร็จ');
+//     io.emit('com6Status', true);
+
+    
+//     const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+
+//     parser.on('data', (rawData) => {
+//       const data = parseInt(rawData);
+
+//       console.log(data);
+
+//       if (isNaN(data)) return;
+
+
+//       lastReceiveTime = Date.now();
+
+//       if (data >= 1000) {
+//         bufferValues.push(data);
+//         waitingBelowThreshold = true;
+//       } else if (waitingBelowThreshold && bufferValues.length > 0) {
+//         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
+//         console.log('✅ ค่าเฉลี่ยที่เก็บได้:', avg);
+//         io.emit('com6Data', avg);
+//         bufferValues = [];
+//         waitingBelowThreshold = false;
+//       }
+//     });
+
+//     setInterval(() => {
+//       const now = Date.now();
+//       if (bufferValues.length > 0 && now - lastReceiveTime > 2000) {
+//         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
+//         console.log('⏱️ Timeout - ค่าเฉลี่ยจาก COM6:', avg);
+//         io.emit('com6Data', avg);
+//         bufferValues = [];
+//         waitingBelowThreshold = false;
+//       }
+//     }, 500);
+//   });
+// }
+
+app.get('/test-com4', (req, res) => {
+  res.render('testCOM4', { isCOM4Connected });
+});
+
+    
+// setupCOM6();
+// ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
+const COM4_PORT = 'COM4';
+const COM5_PORT = 'COM5';
+const COM6_PORT = 'COM6';
+
 let bufferValues = [];
+let bufferCOM4 = [], waitingCOM4 = false, lastTimeCOM4 = Date.now();
+let bufferCOM5 = [], waitingCOM5 = false, lastTimeCOM5 = Date.now();
 let waitingBelowThreshold = false;
 let lastReceiveTime = Date.now();
 
 function setupCOM6() {
   portCOM6 = new SerialPort({ path: COM6_PORT, baudRate: 9600 }, (err) => {
     if (err) {
-      console.error('❌ ไม่สามารถเชื่อมต่อ COM6 อัตโนมัติ:', err.message);
+      console.error('❌ ไม่สามารถเชื่อมต่อ COM6:', err.message);
       return;
     }
-
     isCOM6Connected = true;
-    console.log('✅ เชื่อมต่อ COM6 อัตโนมัติสำเร็จ');
+    console.log('✅ เชื่อมต่อ COM6 สำเร็จ');
     io.emit('com6Status', true);
 
-    
     const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
 
     parser.on('data', (rawData) => {
       const data = parseInt(rawData);
-
-      console.log(data);
-
       if (isNaN(data)) return;
-
 
       lastReceiveTime = Date.now();
 
@@ -304,7 +364,7 @@ function setupCOM6() {
         waitingBelowThreshold = true;
       } else if (waitingBelowThreshold && bufferValues.length > 0) {
         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-        console.log('✅ ค่าเฉลี่ยที่เก็บได้:', avg);
+        console.log('✅ COM6 ค่าเฉลี่ย:', avg);
         io.emit('com6Data', avg);
         bufferValues = [];
         waitingBelowThreshold = false;
@@ -312,10 +372,9 @@ function setupCOM6() {
     });
 
     setInterval(() => {
-      const now = Date.now();
-      if (bufferValues.length > 0 && now - lastReceiveTime > 2000) {
+      if (bufferValues.length > 0 && Date.now() - lastReceiveTime > 2000) {
         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-        console.log('⏱️ Timeout - ค่าเฉลี่ยจาก COM6:', avg);
+        console.log('⏱️ COM6 Timeout ส่งค่าเฉลี่ย:', avg);
         io.emit('com6Data', avg);
         bufferValues = [];
         waitingBelowThreshold = false;
@@ -324,9 +383,101 @@ function setupCOM6() {
   });
 }
 
+function setupCOM4() {
+  portCOM4 = new SerialPort({ path: COM4_PORT, baudRate: 9600 }, (err) => {
+    if (err) {
+      console.error('❌ COM4 connect failed:', err.message);
+      return;
+    }
 
-    
+    isCOM4Connected = true;
+    console.log('✅ COM4 connected automatically');
+    io.emit('com4Status', true);
+
+    const parser = portCOM4.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+    parser.on('data', (rawData) => {
+      const data = parseInt(rawData);
+      console.log('📥 ข้อมูลดิบจาก COM4:', rawData);
+      if (isNaN(data)) return;
+
+      lastTimeCOM4 = Date.now();
+
+      if (data >= 1000) {
+        bufferCOM4.push(data);
+        waitingCOM4 = true;
+      } else if (waitingCOM4 && bufferCOM4.length > 0) {
+        const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
+        console.log('✅ COM4 avg:', avg);
+        io.emit('com4Data', avg);
+        bufferCOM4 = [];
+        waitingCOM4 = false;
+      }
+    });
+
+    setInterval(() => {
+      const now = Date.now();
+      if (bufferCOM4.length > 0 && now - lastTimeCOM4 > 2000) {
+        const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
+        console.log('⏱️ Timeout COM4 avg:', avg);
+        io.emit('com4Data', avg);
+        bufferCOM4 = [];
+        waitingCOM4 = false;
+      }
+    }, 500);
+  });
+}
+
+
+function setupCOM5() {
+  portCOM5 = new SerialPort({ path: COM5_PORT, baudRate: 9600 }, (err) => {
+    if (err) {
+      console.error('❌ COM5 connect failed:', err.message);
+      return;
+    }
+
+    isCOM5Connected = true;
+    console.log('✅ COM5 connected automatically');
+    io.emit('com5Status', true);
+
+    const parser = portCOM5.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+    parser.on('data', (rawData) => {
+      const data = parseInt(rawData);
+      console.log('📥 ข้อมูลดิบจาก COM5:', rawData); 
+      if (isNaN(data)) return;
+
+      lastTimeCOM5 = Date.now();
+
+      if (data >= 1000) {
+        bufferCOM5.push(data);
+        waitingCOM5 = true;
+      } else if (waitingCOM5 && bufferCOM5.length > 0) {
+        const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
+        console.log('✅ COM5 avg:', avg);
+        io.emit('com5Data', avg);
+        bufferCOM5 = [];
+        waitingCOM5 = false;
+      }
+    });
+
+    setInterval(() => {
+      const now = Date.now();
+      if (bufferCOM5.length > 0 && now - lastTimeCOM5 > 2000) {
+        const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
+        console.log('⏱️ Timeout COM5 avg:', avg);
+        io.emit('com5Data', avg);
+        bufferCOM5 = [];
+        waitingCOM5 = false;
+      }
+    }, 500);
+  });
+}
+
+
+// เรียกตอนเริ่มเซิร์ฟเวอร์
+setupCOM4();
+setupCOM5();
 setupCOM6();
+
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));

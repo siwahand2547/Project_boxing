@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test COM4</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    #status {
+      padding: 10px;
+      font-weight: bold;
+    }
+
+    .connected {
+      color: green;
+    }
+
+    .disconnected {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/navbar') %>
+  <h1>ข้อมูลที่รับจาก COM4</h1>
+
+  <div id="status" class="<%= isCOM4Connected ? 'connected' : 'disconnected' %>">
+    <%= isCOM4Connected ? '✅ เชื่อมต่อ COM4 สำเร็จ' : '❌ ยังไม่เชื่อมต่อ COM4' %>
+  </div>
+
+  <table border="1" style="margin-top: 10px; width: 100%; text-align: center;">
+    <thead>
+      <tr>
+        <th>ข้อมูลจาก COM4</th>
+      </tr>
+    </thead>
+    <tbody id="dataTableBody"></tbody>
+  </table>
+
+  <script>
+    const socket = io();
+    const dataTableBody = document.getElementById('dataTableBody');
+    const statusDiv = document.getElementById('status');
+
+    socket.on('com4Data', (data) => {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.textContent = data;
+      tr.appendChild(td);
+      dataTableBody.prepend(tr);
+    });
+
+    socket.on('com4Status', (status) => {
+      if (status) {
+        statusDiv.textContent = "✅ เชื่อมต่อ COM4 สำเร็จ";
+        statusDiv.style.color = "green";
+      } else {
+        statusDiv.textContent = "❌ ยังไม่เชื่อมต่อ COM4";
+        statusDiv.style.color = "red";
+      }
+    });
+  </script>
+</body>
+</html>
