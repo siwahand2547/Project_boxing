@@ -283,7 +283,9 @@ function setupCOM6() {
 
     isCOM6Connected = true;
     console.log('✅ เชื่อมต่อ COM6 อัตโนมัติสำเร็จ');
+    io.emit('com6Status', true);
 
+    
     const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
 
 

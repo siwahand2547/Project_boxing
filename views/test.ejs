@@ -4,9 +4,30 @@
   <meta charset="UTF-8" />
   <title>Test COM6</title>
   <script src="/socket.io/socket.io.js"></script>
+  <style>
+    #status {
+      padding: 10px;
+      font-weight: bold;
+    }
+  
+    .connected {
+      color: green;
+    }
+  
+    .disconnected {
+      color: red;
+    }
+  </style>
 </head>
 <body>
+  <%- include('partials/navbar') %>
   <h1>ข้อมูลที่รับจาก COM6</h1>
+
+<div id="status" class="<%= isCOM6Connected ? 'connected' : 'disconnected' %>">
+  <%= isCOM6Connected ? '✅ เชื่อมต่อ COM6 สำเร็จ' : '❌ ยังไม่เชื่อมต่อ COM6' %>
+</div>
+
+
 
   <table border="1" style="margin-top: 10px; width: 100%; text-align: center;">
     <thead>
@@ -14,23 +35,33 @@
         <th>ข้อมูลจาก COM6</th>
       </tr>
     </thead>
-    <tbody id="dataTableBody">
-      <!-- ข้อมูลแบบเรียลไทม์จะแสดงที่นี่ -->
-    </tbody>
+    <tbody id="dataTableBody"></tbody>
   </table>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     const dataTableBody = document.getElementById('dataTableBody');
+    const statusDiv = document.getElementById('status');
 
-    // ฟัง event 'com6Data' จาก server มาแสดงในตารางทันที
     socket.on('com6Data', (data) => {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.textContent = data;
       tr.appendChild(td);
-      dataTableBody.prepend(tr); // เพิ่มข้อมูลใหม่ที่ด้านบน
+      dataTableBody.prepend(tr);
+    });
+
+    socket.on('com6Status', (status) => {
+      if (status) {
+        statusDiv.textContent = "✅ เชื่อมต่อ COM6 สำเร็จ";
+        statusDiv.style.color = "green";
+      } else {
+        statusDiv.textContent = "❌ ยังไม่เชื่อมต่อ COM6";
+        statusDiv.style.color = "red";
+      }
     });
   </script>
 </body>
+
 </html>
