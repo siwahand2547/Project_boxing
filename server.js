@@ -328,7 +328,43 @@ app.get('/test-com4', (req, res) => {
   res.render('testCOM4', { isCOM4Connected });
 });
 
-    
+//---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
+app.get('/fights/data/:id', (req, res) => {
+  const fightId = req.params.id;
+  const sql = `
+    SELECT f.id, f.fighter1_id, f.fighter2_id,
+           a.name AS fighter1_name, a.camp AS fighter1_camp, a.weight_class AS fighter1_weight, a.photo AS fighter1_photo,
+           b.name AS fighter2_name, b.camp AS fighter2_camp, b.weight_class AS fighter2_weight, b.photo AS fighter2_photo
+    FROM fights f
+    JOIN fighters a ON f.fighter1_id = a.id
+    JOIN fighters b ON f.fighter2_id = b.id
+    WHERE f.id = ?
+  `;
+
+  db.query(sql, [fightId], (err, results) => {
+    if (err || results.length === 0) return res.status(404).send('ไม่พบข้อมูล');
+    const row = results[0];
+    const fighter1 = {
+      name: row.fighter1_name,
+      camp: row.fighter1_camp,
+      weight_class: row.fighter1_weight,
+      photo: row.fighter1_photo
+    };
+    const fighter2 = {
+      name: row.fighter2_name,
+      camp: row.fighter2_camp,
+      weight_class: row.fighter2_weight,
+      photo: row.fighter2_photo
+    };
+    res.render('datafight', { fighter1, fighter2 });
+  });
+});
+
+
+
+
+
+//---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 // setupCOM6();
 // ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
 const COM4_PORT = 'COM4';

@@ -10,7 +10,8 @@
   table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
   th, td { border: 1px solid #555; padding: 8px; text-align: center; }
   th { background-color: #333; }
-  .bt-data { background: #222; padding: 10px; max-height: 150px; overflow-y: auto; font-family: monospace; }
+  .bt-data { display: flex; gap: 20px; }
+  .bt-box { flex: 1; background: #222; padding: 10px; max-height: 200px; overflow-y: auto; font-family: monospace; }
   .bt-port { font-weight: bold; }
 </style>
 </head>
@@ -25,6 +26,7 @@
       <th>วันที่แข่งขัน</th>
       <th>นักชกคนที่ 1</th>
       <th>นักชกคนที่ 2</th>
+      <th>เปรียบเทียบข้อมูล</th> <!-- ✅ เพิ่มคอลัมน์ใหม่ -->
     </tr>
   </thead>
   <tbody>
@@ -34,28 +36,45 @@
         <td><%= fight.fight_date.toISOString().slice(0, 10) %></td>
         <td><%= fight.fighter1 %></td>
         <td><%= fight.fighter2 %></td>
+        <td>
+          <a href="/fights/data/<%= fight.id %>" style="color: cyan;">ดูข้อมูล</a> <!-- ✅ เพิ่มปุ่มลิงก์ -->
+        </td>
       </tr>
     <% }) %>
   </tbody>
 </table>
 
+
 <h2>ข้อมูล Bluetooth Real-time</h2>
-<div id="btData" class="bt-data">
-  <p>รอข้อมูลจากอุปกรณ์...</p>
+<div class="bt-data">
+  <div class="bt-box" id="btCOM4">
+    <h3>นักชกคนที่ 1 (COM4)</h3>
+    <div id="com4Data"></div>
+  </div>
+  <div class="bt-box" id="btCOM5">
+    <h3>นักชกคนที่ 2 (COM5)</h3>
+    <div id="com5Data"></div>
+  </div>
 </div>
 
 <script>
   const socket = io();
-  const btDataDiv = document.getElementById('btData');
 
-  socket.on('btData', ({ port, data }) => {
-    // สร้างข้อความใหม่และเพิ่มเข้า div
+  const com4Div = document.getElementById('com4Data');
+  const com5Div = document.getElementById('com5Data');
+
+  socket.on('com4Data', (data) => {
     const p = document.createElement('p');
-    p.innerHTML = `<span class="bt-port">${port}:</span> ${data}`;
-    btDataDiv.appendChild(p);
+    p.innerHTML = `<span class="bt-port">COM4:</span> ${data}`;
+    com4Div.appendChild(p);
+    com4Div.scrollTop = com4Div.scrollHeight;
+  });
 
-    // เลื่อน scrollbar ลงล่างสุดเวลาเพิ่มข้อมูลใหม่
-    btDataDiv.scrollTop = btDataDiv.scrollHeight;
+  socket.on('com5Data', (data) => {
+    const p = document.createElement('p');
+    p.innerHTML = `<span class="bt-port">COM5:</span> ${data}`;
+    com5Div.appendChild(p);
+    com5Div.scrollTop = com5Div.scrollHeight;
   });
 </script>
 

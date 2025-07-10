@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>เปรียบเทียบนักชก</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      padding: 20px;
+    }
+    /* ตารางข้อมูลนักชก */
+    table.fighter-info {
+      border-collapse: collapse;
+      width: 45%;
+      margin-bottom: 20px;
+      float: left;
+      margin-right: 5%;
+      background-color: #1e1e1e;
+      border: 2px solid #555;
+      border-radius: 6px;
+    }
+    table.fighter-info:last-child {
+      margin-right: 0;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #333;
+    }
+    img {
+      max-width: 100px;
+      border-radius: 4px;
+    }
+    button.watch-btn {
+      background-color: #007bff;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button.watch-btn:hover {
+      background-color: #0056b3;
+    }
+    /* ตารางข้อมูล realtime */
+    .realtime-container {
+      width: 45%;
+      float: left;
+      margin-right: 5%;
+      background-color: #222;
+      border: 2px solid #0f0;
+      border-radius: 8px;
+      padding: 15px;
+      box-sizing: border-box;
+      min-height: 250px;
+      overflow-y: auto;
+      max-height: 300px;
+    }
+    .realtime-container:last-child {
+      margin-right: 0;
+      border-color: #08f;
+    }
+    .realtime-container h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-weight: bold;
+      color: #0f0;
+    }
+    .realtime-container:last-child h2 {
+      color: #08f;
+    }
+    table.realtime-table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #111;
+    }
+    table.realtime-table th, table.realtime-table td {
+      border: 1px solid #444;
+      padding: 6px;
+      text-align: center;
+      color: #afa;
+      font-family: monospace;
+    }
+    table.realtime-table th {
+      background-color: #222;
+    }
+    .clear {
+      clear: both;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>เปรียบเทียบนักชก</h1>
+
+  <!-- ตารางนักชกคนที่ 1 -->
+  <table class="fighter-info">
+    <thead>
+      <tr>
+        <th>ชื่อ</th>
+        <th>ค่าย</th>
+        <th>รุ่นน้ำหนัก</th>
+        <th>ภาพ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><%= fighter1.name %></td>
+        <td><%= fighter1.camp %></td>
+        <td><%= fighter1.weight_class %></td>
+        <td><img src="<%= fighter1.photo %>" alt="fighter1 photo"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ตารางนักชกคนที่ 2 -->
+  <table class="fighter-info">
+    <thead>
+      <tr>
+        <th>ชื่อ</th>
+        <th>ค่าย</th>
+        <th>รุ่นน้ำหนัก</th>
+        <th>ภาพ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><%= fighter2.name %></td>
+        <td><%= fighter2.camp %></td>
+        <td><%= fighter2.weight_class %></td>
+        <td><img src="<%= fighter2.photo %>" alt="fighter2 photo"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="clear"></div>
+
+  <!-- ตาราง realtime นักชกคนที่ 1 -->
+  <div class="realtime-container" id="realtime1">
+    <h2>ข้อมูล Real-time นักชกคนที่ 1 (COM4)</h2>
+    <table class="realtime-table" id="com4Table">
+      <thead>
+        <tr>
+          <th>ข้อมูล</th>
+          <th>ดูคลิปย้อนหลัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- ข้อมูล realtime จะมาเพิ่มที่นี่ -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ตาราง realtime นักชกคนที่ 2 -->
+  <div class="realtime-container" id="realtime2">
+    <h2>ข้อมูล Real-time นักชกคนที่ 2 (COM5)</h2>
+    <table class="realtime-table" id="com5Table">
+      <thead>
+        <tr>
+          <th>ข้อมูล</th>
+          <th>ดูคลิปย้อนหลัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- ข้อมูล realtime จะมาเพิ่มที่นี่ -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="clear"></div>
+
+<script>
+  const socket = io();
+
+  function watchReplay(fighter, data) {
+    alert(`คุณต้องการดูคลิปย้อนหลังของ: ${fighter}\nข้อมูล: ${data}`);
+    // TODO: เปลี่ยนเป็นเปิดลิงก์จริง หรือแสดง modal คลิปย้อนหลังตามระบบของคุณ
+  }
+
+  socket.on('com4Data', (data) => {
+    const tbody = document.querySelector('#com4Table tbody');
+    const tr = document.createElement('tr');
+
+    const tdData = document.createElement('td');
+    tdData.textContent = data;
+    tr.appendChild(tdData);
+
+    const tdBtn = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.textContent = 'ดูคลิปย้อนหลัง';
+    btn.classList.add('watch-btn');
+    btn.onclick = () => watchReplay('<%= fighter1.name %>', data);
+    tdBtn.appendChild(btn);
+    tr.appendChild(tdBtn);
+
+    tbody.appendChild(tr);
+
+    // scroll bottom
+    tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+  });
+
+  socket.on('com5Data', (data) => {
+    const tbody = document.querySelector('#com5Table tbody');
+    const tr = document.createElement('tr');
+
+    const tdData = document.createElement('td');
+    tdData.textContent = data;
+    tr.appendChild(tdData);
+
+    const tdBtn = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.textContent = 'ดูคลิปย้อนหลัง';
+    btn.classList.add('watch-btn');
+    btn.onclick = () => watchReplay('<%= fighter2.name %>', data);
+    tdBtn.appendChild(btn);
+    tr.appendChild(tdBtn);
+
+    tbody.appendChild(tr);
+
+    // scroll bottom
+    tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+  });
+</script>
+
+</body>
+</html>
