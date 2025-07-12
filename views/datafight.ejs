@@ -12,7 +12,6 @@
       color: #eee;
       padding: 20px;
     }
-    /* ตารางข้อมูลนักชก */
     table.fighter-info {
       border-collapse: collapse;
       width: 45%;
@@ -38,18 +37,6 @@
       max-width: 100px;
       border-radius: 4px;
     }
-    button.watch-btn {
-      background-color: #007bff;
-      border: none;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button.watch-btn:hover {
-      background-color: #0056b3;
-    }
-    /* ตารางข้อมูล realtime */
     .realtime-container {
       width: 45%;
       float: left;
@@ -91,141 +78,203 @@
     table.realtime-table th {
       background-color: #222;
     }
-    .clear {
-      clear: both;
+    .watch-btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
     }
+    .clear { clear: both; margin-top: 20px; }
+    #replayVideo { margin-top: 20px; display: none; border: 2px solid #fff; }
+    #timestamps button { margin: 5px 5px; background: #444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; }
   </style>
 </head>
 <body>
 
-  <h1>เปรียบเทียบนักชก</h1>
+<h1>เปรียบเทียบนักชก</h1>
 
-  <!-- ตารางนักชกคนที่ 1 -->
-  <table class="fighter-info">
-    <thead>
-      <tr>
-        <th>ชื่อ</th>
-        <th>ค่าย</th>
-        <th>รุ่นน้ำหนัก</th>
-        <th>ภาพ</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><%= fighter1.name %></td>
-        <td><%= fighter1.camp %></td>
-        <td><%= fighter1.weight_class %></td>
-        <td><img src="<%= fighter1.photo %>" alt="fighter1 photo"></td>
-      </tr>
-    </tbody>
-  </table>
+<!-- Modal แสดงวิดีโอ -->
+<div id="videoModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color: rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
+  <div style="position:relative; background:#000; padding:20px; border-radius:8px;">
+    <span onclick="closeModal()" style="position:absolute; top:10px; right:15px; color:white; font-size:24px; cursor:pointer;">&times;</span>
+    <video id="modalVideo" width="800" controls autoplay></video>
+    <div id="modalTimestamps" style="margin-top:10px; text-align:center;"></div>
 
-  <!-- ตารางนักชกคนที่ 2 -->
-  <table class="fighter-info">
-    <thead>
-      <tr>
-        <th>ชื่อ</th>
-        <th>ค่าย</th>
-        <th>รุ่นน้ำหนัก</th>
-        <th>ภาพ</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><%= fighter2.name %></td>
-        <td><%= fighter2.camp %></td>
-        <td><%= fighter2.weight_class %></td>
-        <td><img src="<%= fighter2.photo %>" alt="fighter2 photo"></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="clear"></div>
-
-  <!-- ตาราง realtime นักชกคนที่ 1 -->
-  <div class="realtime-container" id="realtime1">
-    <h2>ข้อมูล Real-time นักชกคนที่ 1 (COM4)</h2>
-    <table class="realtime-table" id="com4Table">
-      <thead>
-        <tr>
-          <th>ข้อมูล</th>
-          <th>ดูคลิปย้อนหลัง</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- ข้อมูล realtime จะมาเพิ่มที่นี่ -->
-      </tbody>
-    </table>
   </div>
+</div>
 
-  <!-- ตาราง realtime นักชกคนที่ 2 -->
-  <div class="realtime-container" id="realtime2">
-    <h2>ข้อมูล Real-time นักชกคนที่ 2 (COM5)</h2>
-    <table class="realtime-table" id="com5Table">
-      <thead>
-        <tr>
-          <th>ข้อมูล</th>
-          <th>ดูคลิปย้อนหลัง</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- ข้อมูล realtime จะมาเพิ่มที่นี่ -->
-      </tbody>
-    </table>
-  </div>
 
-  <div class="clear"></div>
+<table class="fighter-info">
+  <thead>
+    <tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><%= fighter1.name %></td>
+      <td><%= fighter1.camp %></td>
+      <td><%= fighter1.weight_class %></td>
+      <td><img src="<%= fighter1.photo %>" alt="fighter1"></td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="fighter-info">
+  <thead>
+    <tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><%= fighter2.name %></td>
+      <td><%= fighter2.camp %></td>
+      <td><%= fighter2.weight_class %></td>
+      <td><img src="<%= fighter2.photo %>" alt="fighter2"></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="clear"></div>
+
+<div class="realtime-container" id="realtime1">
+  <h2>ข้อมูล Real-time นักชกคนที่ 1 (COM4)</h2>
+  <table class="realtime-table" id="com4Table">
+    <thead><tr><th>ข้อมูล</th><th>ดูคลิปย้อนหลัง</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="realtime-container" id="realtime2">
+  <h2>ข้อมูล Real-time นักชกคนที่ 2 (COM5)</h2>
+  <table class="realtime-table" id="com5Table">
+    <thead><tr><th>ข้อมูล</th><th>ดูคลิปย้อนหลัง</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="clear"></div>
+
+<!-- ปุ่มควบคุมการบันทึก -->
+<button onclick="startRecording()">🎥 กดเริ่มการแข่งขัน</button>
+<button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
+
+<!--<video id="replayVideo" width="600" controls></video> -->
+<video id="replayVideo" width="600" style="display:none;"></video>
+
+<ul id="timestamps"></ul>
 
 <script>
   const socket = io();
+  let mediaRecorder;
+  let recordedChunks = [];
+  let recordedVideoUrl = null;
+  let timestampList = [];
 
-  function watchReplay(fighter, data) {
-    alert(`คุณต้องการดูคลิปย้อนหลังของ: ${fighter}\nข้อมูล: ${data}`);
-    // TODO: เปลี่ยนเป็นเปิดลิงก์จริง หรือแสดง modal คลิปย้อนหลังตามระบบของคุณ
+  function startRecording() {
+    recordedChunks = [];
+    timestampList = [];
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        document.getElementById('stopBtn').disabled = false;
+        const videoPreview = document.getElementById('replayVideo');
+        videoPreview.srcObject = stream;
+        videoPreview.style.display = 'block';
+        videoPreview.muted = true;
+        videoPreview.play();
+
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          recordedVideoUrl = URL.createObjectURL(blob);
+          videoPreview.srcObject = null;
+          videoPreview.src = recordedVideoUrl;
+          videoPreview.controls = true;
+          videoPreview.muted = false;
+        };
+
+        mediaRecorder.start();
+        alert('เริ่มการแข่งขันและเริ่มบันทึกวิดีโอแล้ว!');
+      })
+      .catch(err => alert('ไม่สามารถเปิดกล้องได้: ' + err.message));
   }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      document.getElementById('stopBtn').disabled = true;
+      alert('จบการแข่งขันและหยุดบันทึกวิดีโอแล้ว!');
+    }
+  }
+
+    function openModal() {
+    if (recordedVideoUrl) {
+      const modal = document.getElementById('videoModal');
+      const video = document.getElementById('modalVideo');
+      video.src = recordedVideoUrl;
+      modal.style.display = 'flex';
+    } else {
+      alert('ยังไม่มีคลิปวิดีโอให้ดู');
+    }
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('videoModal');
+    const video = document.getElementById('modalVideo');
+    video.pause();
+    video.currentTime = 0;
+    modal.style.display = 'none';
+  }
+
+function addTimestamp(label) {
+  const video = document.getElementById('replayVideo');
+  const time = video.currentTime;
+  timestampList.push({ label, time });
+
+  // ปุ่มใต้ replayVideo (เก่า)
+  const li = document.createElement('li');
+  li.innerHTML = `<button onclick="jumpTo(${time})">⏱️ ${label}</button>`;
+  document.getElementById('timestamps').appendChild(li);
+
+  // ปุ่มใต้ modal video (ใหม่)
+  const modalBtn = document.createElement('button');
+  modalBtn.textContent = `⏱️ ${label}`;
+  modalBtn.style.margin = '5px';
+  modalBtn.style.background = '#08f';
+  modalBtn.style.color = 'white';
+  modalBtn.style.border = 'none';
+  modalBtn.style.padding = '5px 10px';
+  modalBtn.style.borderRadius = '4px';
+  modalBtn.onclick = () => jumpToModal(time);
+  document.getElementById('modalTimestamps').appendChild(modalBtn);
+}
+
+
+function jumpToModal(seconds) {
+  const video = document.getElementById('modalVideo');
+  video.currentTime = seconds;
+  video.play();
+}
+
 
   socket.on('com4Data', (data) => {
     const tbody = document.querySelector('#com4Table tbody');
     const tr = document.createElement('tr');
-
-    const tdData = document.createElement('td');
-    tdData.textContent = data;
-    tr.appendChild(tdData);
-
-    const tdBtn = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.textContent = 'ดูคลิปย้อนหลัง';
-    btn.classList.add('watch-btn');
-    btn.onclick = () => watchReplay('<%= fighter1.name %>', data);
-    tdBtn.appendChild(btn);
-    tr.appendChild(tdBtn);
-
+    tr.innerHTML = `<td>${data}</td><td><button class='watch-btn' onclick="openModal()">ดูคลิปย้อนหลัง</button></td>`;
     tbody.appendChild(tr);
-
-    // scroll bottom
     tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+    addTimestamp(`นักชก1: ${data}`);
   });
 
   socket.on('com5Data', (data) => {
     const tbody = document.querySelector('#com5Table tbody');
     const tr = document.createElement('tr');
-
-    const tdData = document.createElement('td');
-    tdData.textContent = data;
-    tr.appendChild(tdData);
-
-    const tdBtn = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.textContent = 'ดูคลิปย้อนหลัง';
-    btn.classList.add('watch-btn');
-    btn.onclick = () => watchReplay('<%= fighter2.name %>', data);
-    tdBtn.appendChild(btn);
-    tr.appendChild(tdBtn);
-
+    tr.innerHTML = `<td>${data}</td><td><button class='watch-btn' onclick="openModal()">ดูคลิปย้อนหลัง</button></td>`;
     tbody.appendChild(tr);
-
-    // scroll bottom
     tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+    addTimestamp(`นักชก2: ${data}`);
   });
 </script>
 

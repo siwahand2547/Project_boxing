@@ -507,6 +507,15 @@ function setupCOM5() {
     }, 500);
   });
 }
+// รับวิดีโอที่ client อัปโหลด
+app.post('/upload-video', upload.single('video'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No video uploaded' });
+  }
+
+  const videoPath = '/uploads/' + req.file.filename;
+  res.json({ success: true, url: videoPath });
+});
 
 
 // เรียกตอนเริ่มเซิร์ฟเวอร์
@@ -514,6 +523,11 @@ setupCOM4();
 setupCOM5();
 setupCOM6();
 
+//-----------------------------------repaly--------------------------------------------------------
+app.get('/replay', (req, res) => {
+  res.render('replay');
+});
+//-----------------------------------repaly--------------------------------------------------------
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));

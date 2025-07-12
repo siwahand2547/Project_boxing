@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>คลิปย้อนหลัง</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      padding: 20px;
+      margin: 0;
+    }
+    video {
+      width: 100%;
+      max-width: 100%;
+      border: 2px solid #fff;
+      border-radius: 4px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>คลิปย้อนหลัง</h1>
+    <video id="replayVideo" controls autoplay></video>
+  </div>
+
+  <script>
+    // ดึงพารามิเตอร์จาก URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const videoUrl = urlParams.get('video');
+    const startTime = parseFloat(urlParams.get('time')) || 0;
+
+    // ตั้งค่าวิดีโอ
+    const video = document.getElementById('replayVideo');
+    video.src = videoUrl;
+    video.currentTime = startTime;
+    video.play();
+  </script>
+</body>
+</html>

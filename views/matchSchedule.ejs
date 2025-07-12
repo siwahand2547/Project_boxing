@@ -45,38 +45,6 @@
 </table>
 
 
-<h2>ข้อมูล Bluetooth Real-time</h2>
-<div class="bt-data">
-  <div class="bt-box" id="btCOM4">
-    <h3>นักชกคนที่ 1 (COM4)</h3>
-    <div id="com4Data"></div>
-  </div>
-  <div class="bt-box" id="btCOM5">
-    <h3>นักชกคนที่ 2 (COM5)</h3>
-    <div id="com5Data"></div>
-  </div>
-</div>
-
-<script>
-  const socket = io();
-
-  const com4Div = document.getElementById('com4Data');
-  const com5Div = document.getElementById('com5Data');
-
-  socket.on('com4Data', (data) => {
-    const p = document.createElement('p');
-    p.innerHTML = `<span class="bt-port">COM4:</span> ${data}`;
-    com4Div.appendChild(p);
-    com4Div.scrollTop = com4Div.scrollHeight;
-  });
-
-  socket.on('com5Data', (data) => {
-    const p = document.createElement('p');
-    p.innerHTML = `<span class="bt-port">COM5:</span> ${data}`;
-    com5Div.appendChild(p);
-    com5Div.scrollTop = com5Div.scrollHeight;
-  });
-</script>
 
 </body>
 </html>
