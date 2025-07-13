@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>สร้างการแข่งขัน</title>
-<style>
-  body { font-family: Arial; background: #121212; color: #eee; padding: 20px; }
-  label { display: block; margin-top: 10px; }
-  select, input { width: 200px; padding: 5px; margin-top: 5px; }
-  button { margin-top: 15px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer; }
-  button:disabled { background: #555; cursor: not-allowed; }
-  .status { margin-top: 10px; }
-  .connected { color: #0f0; }
-  .disconnected { color: #f00; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>สร้างการแข่งขัน</title>
+  <style>
+    body { font-family: Arial; background: #121212; color: #eee; padding: 20px; }
+    label { display: block; margin-top: 10px; }
+    select, input { width: 200px; padding: 5px; margin-top: 5px; }
+    button { margin-top: 15px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    .status { margin-top: 10px; }
+    .connected { color: #0f0; }
+    .disconnected { color: #f00; }
+  </style>
 </head>
 <body>
 
@@ -25,6 +25,9 @@
 </div>
 
 <form id="matchForm" method="POST" action="/match/create">
+  <label for="fight_date">วันที่แข่งขัน:</label>
+  <input type="date" name="fight_date" required>
+
   <label for="fighter1">เลือกนักชกคนที่ 1:</label>
   <select id="fighter1" name="fighter1_id" required>
     <% fighters.forEach(f => { %>

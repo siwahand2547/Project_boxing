@@ -237,32 +237,38 @@ app.get('/match/create', (req, res) => {
   
   //   res.json({ success: true, message: 'Connecting to COM ports...' });
   // });
-  app.post('/match/create', (req, res) => {
-    const { fighter1_id, fighter2_id } = req.body;
-    if (!isCOM4Connected || !isCOM5Connected) {
-      return res.status(400).send('Bluetooth devices not connected');
-    }
-    db.query(
-      'INSERT INTO fights (fighter1_id, fighter2_id, fight_date) VALUES (?, ?, NOW())',
-      [fighter1_id, fighter2_id],
-      (err) => {
-        if (err) return res.status(500).send('Create match failed');
-        res.redirect('/match');
-      }
-    );
+app.post('/match/create', (req, res) => {
+  const { fighter1_id, fighter2_id } = req.body;
+
+  if (!isCOM4Connected || !isCOM5Connected) {
+    return res.status(400).send('Bluetooth devices not connected');
+  }
+
+  const sql = `
+    INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date)
+    VALUES (?, ?, CURDATE())`;
+
+  db.query(sql, [fighter1_id, fighter2_id], (err) => {
+    if (err) return res.status(500).send('Create match failed');
+    res.redirect('/match');
   });
-  app.get('/match', (req, res) => {
-    const sql = `
-      SELECT f.id, f.fight_date, a.name AS fighter1, b.name AS fighter2
-      FROM fights f
-      JOIN fighters a ON f.fighter1_id = a.id
-      JOIN fighters b ON f.fighter2_id = b.id
-      ORDER BY f.fight_date DESC`;
-    db.query(sql, (err, fights) => {
-      if (err) return res.status(500).send('DB error');
-      res.render('matchSchedule', { fights });
-    });
+});
+
+
+app.get('/match', (req, res) => {
+  const sql = `
+    SELECT s.id, s.fight_date, f1.name AS fighter1, f2.name AS fighter2
+    FROM schedulefight s
+    JOIN fighters f1 ON s.fighterid_1 = f1.id
+    JOIN fighters f2 ON s.fighterid_2 = f2.id
+    ORDER BY s.fight_date DESC`;
+
+  db.query(sql, (err, fights) => {
+    if (err) return res.status(500).send('DB error');
+    res.render('matchSchedule', { fights });
   });
+});
+
 
 //-------------------------------------ตัวtest
 app.get('/test', (req, res) => {
@@ -330,19 +336,22 @@ app.get('/test-com4', (req, res) => {
 
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 app.get('/fights/data/:id', (req, res) => {
-  const fightId = req.params.id;
-  const sql = `
-    SELECT f.id, f.fighter1_id, f.fighter2_id,
+  const id = req.params.id;
+  const sqlSchedulefight = `
+    SELECT s.id, s.fighterid_1, s.fighterid_2,
            a.name AS fighter1_name, a.camp AS fighter1_camp, a.weight_class AS fighter1_weight, a.photo AS fighter1_photo,
            b.name AS fighter2_name, b.camp AS fighter2_camp, b.weight_class AS fighter2_weight, b.photo AS fighter2_photo
-    FROM fights f
-    JOIN fighters a ON f.fighter1_id = a.id
-    JOIN fighters b ON f.fighter2_id = b.id
-    WHERE f.id = ?
+    FROM schedulefight s
+    JOIN fighters a ON s.fighterid_1 = a.id
+    JOIN fighters b ON s.fighterid_2 = b.id
+    WHERE s.id = ?
   `;
 
-  db.query(sql, [fightId], (err, results) => {
+  const sqlFighters = `SELECT id, name FROM fighters`;
+
+  db.query(sqlSchedulefight, [id], (err, results) => {
     if (err || results.length === 0) return res.status(404).send('ไม่พบข้อมูล');
+
     const row = results[0];
     const fighter1 = {
       name: row.fighter1_name,
@@ -356,9 +365,47 @@ app.get('/fights/data/:id', (req, res) => {
       weight_class: row.fighter2_weight,
       photo: row.fighter2_photo
     };
-    res.render('datafight', { fighter1, fighter2 });
+
+    // ดึงข้อมูล fight data
+   const sqlDatafight = `
+  SELECT id, clipdetail, fighterdetail, time, timehit, fighterid
+  FROM datafight
+  WHERE schedulefight_id = ?
+  ORDER BY id DESC
+`;
+
+
+    // ดึงชื่อ fighters เพื่อ map id->name
+    db.query(sqlFighters, (err2, fightersList) => {
+      if (err2) return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลนักชก');
+
+      db.query(sqlDatafight, [id], (err3, datafightResults) => {
+        if (err3) return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูล fight data');
+
+        // สร้าง Map id->name
+        const fighterIdNameMap = {};
+        fightersList.forEach(f => {
+          fighterIdNameMap[f.id] = f.name;
+        });
+
+        // ส่งข้อมูลทั้งหมดไป EJS
+        res.render('datafight', {
+          fighter1,
+          fighter2,
+          schedulefightId: row.id,
+          fightData: datafightResults,
+          fighterIdNameMap
+        });
+      });
+    });
   });
 });
+
+
+
+
+
+
 
 
 
@@ -522,7 +569,85 @@ app.post('/upload-video', upload.single('video'), (req, res) => {
 setupCOM4();
 setupCOM5();
 setupCOM6();
+//-------------------------------------Record-----------------------------------------------------
+app.post('/datafight/save', (req, res) => {
+  const { schedulefight_id, clip_url, data, time } = req.body; // time = ระยะเวลาคลิปทั้งหมด (วินาที - เป็นตัวเลข)
 
+  if (!data || data.length === 0) {
+    return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
+  }
+
+  const sql = 'SELECT fighterid_1, fighterid_2 FROM schedulefight WHERE id = ?';
+  db.query(sql, [schedulefight_id], (err, results) => {
+    if (err || results.length === 0) 
+      return res.status(500).json({ success: false, message: 'ดึงข้อมูลนักชกล้มเหลว' });
+
+    const fighter1 = results[0].fighterid_1;
+    const fighter2 = results[0].fighterid_2;
+    
+    const insertData = [];
+
+    data.forEach(d => {
+      let fighterid = null;
+      if (d.label.includes('นักชก1')) fighterid = fighter1;
+      else if (d.label.includes('นักชก2')) fighterid = fighter2;
+      if (!fighterid) return;
+
+      let details = d.value;
+      let timeHitSeconds = 0;
+
+      // ถ้ามีข้อมูล | แยกเวลา
+      if (details.includes('|')) {
+        const parts = details.split('|');
+        details = parts[0];
+        timeHitSeconds = parseInt(parts[1], 10);
+      }
+
+      // แปลงวินาที → HH:MM:SS
+      function secondsToTime(sec) {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
+      }
+
+      const timehit = secondsToTime(timeHitSeconds);
+
+      insertData.push([
+        time,                     // ✅ ความยาวคลิป
+        fighterid, 
+        d.label + ' ' + details,
+        clip_url,
+        schedulefight_id,
+        timehit                             // ✅ เวลาที่โดนชก (HH:MM:SS)
+      ]);
+    });
+
+    const insertSQL = `
+      INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit)
+      VALUES ?
+    `;
+
+    db.query(insertSQL, [insertData], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'บันทึกข้อมูลล้มเหลว' });
+      }
+
+      return res.json({ success: true });
+    });
+  });
+});
+
+
+
+
+
+
+
+
+
+//-------------------------------------Record-----------------------------------------------------
 //-----------------------------------repaly--------------------------------------------------------
 app.get('/replay', (req, res) => {
   res.render('replay');
