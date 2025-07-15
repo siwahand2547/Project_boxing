@@ -64,24 +64,35 @@ app.get('/fighters/edit/:id', (req, res) => {
   });
 });
 
-app.post('/fighters/edit/:id', (req, res) => {
-  const { name, camp, weight_class } = req.body;
-  db.query(
-    'UPDATE fighters SET name = ?, camp = ?, weight_class = ? WHERE id = ?',
-    [name, camp, weight_class, req.params.id],
-    err => {
-      if (err) return res.status(500).send('Update error');
-      res.redirect('/fighters');
-    }
-  );
-});
+
 
 app.post('/fighters/delete/:id', (req, res) => {
-  db.query('DELETE FROM fighters WHERE id = ?', [req.params.id], err => {
-    if (err) return res.status(500).send('Delete error');
-    res.redirect('/fighters');
+  const fighterId = req.params.id;
+
+  const checkSql = 'SELECT COUNT(*) AS count FROM schedulefight WHERE fighterid_1 = ? OR fighterid_2 = ?';
+  db.query(checkSql, [fighterId, fighterId], (err, results) => {
+    if (err) {
+      console.error('Error checking schedulefight:', err);
+      return res.redirect('/fighters?error=internal');
+    }
+
+    if (results[0].count > 0) {
+      // ส่ง query param error กลับไปให้หน้า /fighters แสดง alert
+      return res.redirect('/fighters?error=hasMatch');
+    }
+
+    db.query('DELETE FROM fighters WHERE id = ?', [fighterId], (err) => {
+      if (err) {
+        console.error('Delete error:', err);
+        return res.redirect('/fighters?error=delete');
+      }
+      res.redirect('/fighters');
+    });
   });
 });
+
+
+
 
 // --------- Fights CRUD ---------
 app.get('/fights', (req, res) => {
@@ -335,8 +346,9 @@ app.get('/test-com4', (req, res) => {
 });
 
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
-app.get('/fights/data/:id', (req, res) => {
+app.get('/fights/data/:id', (req, res) => { 
   const id = req.params.id;
+
   const sqlSchedulefight = `
     SELECT s.id, s.fighterid_1, s.fighterid_2,
            a.name AS fighter1_name, a.camp AS fighter1_camp, a.weight_class AS fighter1_weight, a.photo AS fighter1_photo,
@@ -366,16 +378,13 @@ app.get('/fights/data/:id', (req, res) => {
       photo: row.fighter2_photo
     };
 
-    // ดึงข้อมูล fight data
-   const sqlDatafight = `
-  SELECT id, clipdetail, fighterdetail, time, timehit, fighterid
-  FROM datafight
-  WHERE schedulefight_id = ?
-  ORDER BY id DESC
-`;
+    const sqlDatafight = `
+      SELECT id, clipdetail, fighterdetail, time, timehit, fighterid, round
+      FROM datafight
+      WHERE schedulefight_id = ?
+      ORDER BY round ASC, id ASC
+    `;
 
-
-    // ดึงชื่อ fighters เพื่อ map id->name
     db.query(sqlFighters, (err2, fightersList) => {
       if (err2) return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลนักชก');
 
@@ -388,18 +397,42 @@ app.get('/fights/data/:id', (req, res) => {
           fighterIdNameMap[f.id] = f.name;
         });
 
-        // ส่งข้อมูลทั้งหมดไป EJS
-        res.render('datafight', {
-          fighter1,
-          fighter2,
-          schedulefightId: row.id,
-          fightData: datafightResults,
-          fighterIdNameMap
+        // แยกข้อมูลตาม round
+        const groupedByRound = {};
+        datafightResults.forEach(item => {
+          const round = item.round || 1;
+          if (!groupedByRound[round]) groupedByRound[round] = [];
+          groupedByRound[round].push(item);
         });
+
+        // --- ดึง maxRound จาก DB ---
+const sqlMaxRound = `
+  SELECT MAX(round) AS maxRound 
+  FROM datafight 
+  WHERE schedulefight_id = ?
+`;
+
+db.query(sqlMaxRound, [id], (err4, roundResult) => {
+  if (err4) return res.status(500).send('เกิดข้อผิดพลาดในการดึง max round');
+
+  const maxRound = roundResult[0].maxRound || 0;
+
+  res.render('datafight', {
+    fighter1,
+    fighter2,
+    schedulefightId: row.id,
+    fightDataGrouped: groupedByRound,
+    fighterIdNameMap,
+    roundNumberStart: maxRound + 1 // ✅ ส่งยกถัดไป
+  });
+});
+
       });
     });
   });
 });
+
+
 
 
 
@@ -571,7 +604,7 @@ setupCOM5();
 setupCOM6();
 //-------------------------------------Record-----------------------------------------------------
 app.post('/datafight/save', (req, res) => {
-  const { schedulefight_id, clip_url, data, time } = req.body; // time = ระยะเวลาคลิปทั้งหมด (วินาที - เป็นตัวเลข)
+  const { schedulefight_id, clip_url, data, time , round } = req.body;
 
   if (!data || data.length === 0) {
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -596,14 +629,12 @@ app.post('/datafight/save', (req, res) => {
       let details = d.value;
       let timeHitSeconds = 0;
 
-      // ถ้ามีข้อมูล | แยกเวลา
       if (details.includes('|')) {
         const parts = details.split('|');
         details = parts[0];
         timeHitSeconds = parseInt(parts[1], 10);
       }
 
-      // แปลงวินาที → HH:MM:SS
       function secondsToTime(sec) {
         const h = Math.floor(sec / 3600);
         const m = Math.floor((sec % 3600) / 60);
@@ -614,17 +645,19 @@ app.post('/datafight/save', (req, res) => {
       const timehit = secondsToTime(timeHitSeconds);
 
       insertData.push([
-        time,                     // ✅ ความยาวคลิป
+        time,
         fighterid, 
         d.label + ' ' + details,
         clip_url,
         schedulefight_id,
-        timehit                             // ✅ เวลาที่โดนชก (HH:MM:SS)
+        timehit,
+        round                 // ✅ เพิ่มรอบในการ insert
       ]);
     });
 
     const insertSQL = `
-      INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit)
+      INSERT INTO datafight 
+      (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round)
       VALUES ?
     `;
 
@@ -640,19 +673,45 @@ app.post('/datafight/save', (req, res) => {
 });
 
 
-
-
-
-
-
-
-
 //-------------------------------------Record-----------------------------------------------------
 //-----------------------------------repaly--------------------------------------------------------
 app.get('/replay', (req, res) => {
   res.render('replay');
 });
 //-----------------------------------repaly--------------------------------------------------------
+
+
+//------------------------------------ลบ match-------------------------------------
+app.post('/match/delete/:id', (req, res) => {
+  const id = req.params.id;
+
+  // ลบข้อมูลใน datafight ที่เกี่ยวข้องกับ match ก่อน
+  const deleteDatafightSQL = 'DELETE FROM datafight WHERE schedulefight_id = ?';
+
+  db.query(deleteDatafightSQL, [id], (err) => {
+    if (err) {
+      console.error('ลบข้อมูลใน datafight ล้มเหลว:', err);
+      return res.status(500).send('เกิดข้อผิดพลาดในการลบข้อมูล match');
+    }
+
+    // ลบ match จากตาราง schedulefight
+    const deleteScheduleSQL = 'DELETE FROM schedulefight WHERE id = ?';
+
+    db.query(deleteScheduleSQL, [id], (err2) => {
+      if (err2) {
+        console.error('ลบ match ล้มเหลว:', err2);
+        return res.status(500).send('เกิดข้อผิดพลาดในการลบ match');
+      }
+
+      // ลบสำเร็จ
+      res.redirect('/match');
+    });
+  });
+});
+
+//------------------------------------ลบ match-------------------------------------
+
+
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));

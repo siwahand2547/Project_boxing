@@ -1,50 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ตารางการแข่งขัน</title>
-<script src="/socket.io/socket.io.js"></script>
-<style>
-  body { font-family: Arial; background: #121212; color: #eee; padding: 20px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-  th, td { border: 1px solid #555; padding: 8px; text-align: center; }
-  th { background-color: #333; }
-  .bt-data { display: flex; gap: 20px; }
-  .bt-box { flex: 1; background: #222; padding: 10px; max-height: 200px; overflow-y: auto; font-family: monospace; }
-  .bt-port { font-weight: bold; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ตารางการแข่งขัน</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      padding: 40px;
+      margin: 0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 30px;
+      text-shadow: 0 2px 4px #000;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background-color: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+    }
+
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #333;
+      text-align: center;
+    }
+
+    th {
+      background-color: #2c2c2c;
+      color: #00ffff;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    tr:nth-child(even) {
+      background-color: #181818;
+    }
+
+    tr:hover {
+      background-color: #292929;
+    }
+
+    a {
+      color: #00ffff;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: #fff;
+    }
+
+    .bt-data {
+      display: flex;
+      gap: 20px;
+    }
+
+    .bt-box {
+      flex: 1;
+      background: #222;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      border: 1px solid #333;
+      border-radius: 5px;
+    }
+
+    .bt-port {
+      font-weight: bold;
+      color: #0f0;
+    }
+
+    @media screen and (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      th {
+        display: none;
+      }
+
+      td {
+        border: none;
+        border-bottom: 1px solid #444;
+        position: relative;
+        padding-left: 50%;
+        text-align: left;
+      }
+
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        top: 12px;
+        font-weight: bold;
+        color: #ccc;
+      }
+    }
+  </style>
 </head>
 <body>
+  <%- include('partials/navbar') %>
 
-<h1>ตารางการแข่งขัน</h1>
+  <h1>ตารางการแข่งขัน</h1>
 
-<table>
-  <thead>
-    <tr>
-      <th>คู่ที่</th>
-      <th>วันที่แข่งขัน</th>
-      <th>นักชกคนที่ 1</th>
-      <th>นักชกคนที่ 2</th>
-      <th>เปรียบเทียบข้อมูล</th> <!-- ✅ เพิ่มคอลัมน์ใหม่ -->
-    </tr>
-  </thead>
-  <tbody>
-    <% fights.forEach((fight, index) => { %>
+  <table>
+    <thead>
       <tr>
-        <td><%= index + 1 %></td>
-        <td><%= fight.fight_date.toISOString().slice(0, 10) %></td>
-        <td><%= fight.fighter1 %></td>
-        <td><%= fight.fighter2 %></td>
-        <td>
-          <a href="/fights/data/<%= fight.id %>" style="color: cyan;">ดูข้อมูล</a> <!-- ✅ เพิ่มปุ่มลิงก์ -->
-        </td>
+        <th>คู่ที่</th>
+        <th>วันที่แข่งขัน</th>
+        <th>นักชกคนที่ 1</th>
+        <th>นักชกคนที่ 2</th>
+        <th>เปรียบเทียบข้อมูล</th>
+        <th>การจัดการ</th>
       </tr>
-    <% }) %>
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      <% fights.forEach((fight, index) => { %>
+        <tr>
+          <td data-label="คู่ที่"><%= index + 1 %></td>
+          <td data-label="วันที่แข่งขัน"><%= fight.fight_date.toISOString().slice(0, 10) %></td>
+          <td data-label="นักชกคนที่ 1"><%= fight.fighter1 %></td>
+          <td data-label="นักชกคนที่ 2"><%= fight.fighter2 %></td>
+          <td data-label="เปรียบเทียบข้อมูล">
+            <a href="/fights/data/<%= fight.id %>">ดูข้อมูล</a>
+          </td>
+<td data-label="ลบ">
+  <form method="POST" action="/match/delete/<%= fight.id %>" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบแมตช์นี้?');">
+    <button type="submit" style="background:#c00; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">
+      ลบ
+    </button>
+  </form>
+</td>
 
-
-
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
 </body>
 </html>

@@ -5,18 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>สร้างการแข่งขัน</title>
   <style>
-    body { font-family: Arial; background: #121212; color: #eee; padding: 20px; }
-    label { display: block; margin-top: 10px; }
-    select, input { width: 200px; padding: 5px; margin-top: 5px; }
-    button { margin-top: 15px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer; }
-    button:disabled { background: #555; cursor: not-allowed; }
-    .status { margin-top: 10px; }
-    .connected { color: #0f0; }
-    .disconnected { color: #f00; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #eee;
+      padding: 40px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #00ffff;
+      margin-bottom: 30px;
+    }
+
+    .status {
+      background: #1e1e1e;
+      border: 1px solid #444;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      font-size: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .connected { color: #00ff00; font-weight: bold; }
+    .disconnected { color: #ff4444; font-weight: bold; }
+
+    form {
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background-color: #2a2a2a;
+      color: #fff;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 25px;
+      width: 100%;
+      padding: 12px;
+      background: #00bfff;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #0099cc;
+    }
+
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
-
+<%- include('partials/navbar') %>
 <h1>สร้างการแข่งขันใหม่</h1>
 
 <div class="status">
@@ -25,24 +91,22 @@
 </div>
 
 <form id="matchForm" method="POST" action="/match/create">
-  <label for="fight_date">วันที่แข่งขัน:</label>
-  <input type="date" name="fight_date" required>
 
-  <label for="fighter1">เลือกนักชกคนที่ 1:</label>
+  <label for="fighter1">เลือกนักชกคนที่ 1</label>
   <select id="fighter1" name="fighter1_id" required>
     <% fighters.forEach(f => { %>
       <option value="<%= f.id %>"><%= f.name %></option>
     <% }) %>
   </select>
 
-  <label for="fighter2">เลือกนักชกคนที่ 2:</label>
+  <label for="fighter2">เลือกนักชกคนที่ 2</label>
   <select id="fighter2" name="fighter2_id" required>
     <% fighters.forEach(f => { %>
       <option value="<%= f.id %>"><%= f.name %></option>
     <% }) %>
   </select>
 
-  <button type="submit" id="createMatchBtn" disabled>สร้างการแข่งขัน</button>
+  <button type="submit" id="createMatchBtn" disabled>👊 สร้างการแข่งขัน</button>
 </form>
 
 <script src="/socket.io/socket.io.js"></script>

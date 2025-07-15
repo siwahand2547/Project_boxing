@@ -1,8 +1,60 @@
-<nav style="background: #222; padding: 10px;">
-    <a href="/fighters" style="color: white; margin-right: 15px; text-decoration: none;">นักมวย</a>
-    <a href="/fights" style="color: white; margin-right: 15px; text-decoration: none;">ประวัติการชก</a>
-    <a href="/match" style="color: white; margin-right: 15px; text-decoration: none;">ตารางการแข่งขัน</a>
-    <a href="/match/create" style="color: white; margin-right: 15px; font-weight: bold; text-decoration: none;">สร้างการแข่งขัน</a>
-    <a href="/test" style="color: white; margin-left: 20px; font-weight: bold; text-decoration: none;">Test</a>
-  </nav>
-  
+<nav style="
+  background: #1e1e1e;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  border-bottom: 1px solid #444;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+">
+  <a href="/fighters" style="
+    color: #eee;
+    text-decoration: none;
+    font-size: 16px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.3s, color 0.3s;
+  " onmouseover="this.style.background='#333'; this.style.color='#00ffff';"
+     onmouseout="this.style.background=''; this.style.color='#eee';">
+    นักมวย
+  </a>
+
+  <a href="/fights" style="
+    color: #eee;
+    text-decoration: none;
+    font-size: 16px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.3s, color 0.3s;
+  " onmouseover="this.style.background='#333'; this.style.color='#00ffff';"
+     onmouseout="this.style.background=''; this.style.color='#eee';">
+    ประวัติการชก
+  </a>
+
+  <a href="/match" style="
+    color: #eee;
+    text-decoration: none;
+    font-size: 16px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.3s, color 0.3s;
+  " onmouseover="this.style.background='#333'; this.style.color='#00ffff';"
+     onmouseout="this.style.background=''; this.style.color='#eee';">
+    ตารางการแข่งขัน
+  </a>
+
+  <a href="/match/create" style="
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px 14px;
+    background: #007bff;
+    border-radius: 6px;
+    transition: background 0.3s ease;
+  " onmouseover="this.style.background='#0056b3';"
+     onmouseout="this.style.background='#007bff';">
+    ➕ สร้างการแข่งขัน
+  </a>
+</nav>

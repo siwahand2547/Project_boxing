@@ -1,47 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="stylesheet" href="/styles.css">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>นักมวยทั้งหมด</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 30px;
+      margin: 0;
+    }
+    h1 {
+      color: #00ffff;
+      margin-bottom: 20px;
+    }
+    a.add-fighter {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 10px 18px;
+      background-color: #00bcd4;
+      color: #121212;
+      font-weight: bold;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background-color 0.3s ease;
+    }
+    a.add-fighter:hover {
+      background-color: #0097a7;
+      color: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #1e1e1e;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+      font-size: 16px;
+    }
+    th {
+      background-color: #222;
+      color: #00ffff;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    tbody tr:hover {
+      background-color: #333;
+    }
+    img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid #555;
+    }
+    td.no-photo {
+      font-style: italic;
+      color: #888;
+    }
+    td.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+td.actions a,
+td.actions form {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+td.actions a {
+  width: 80px;
+  height: 36px;
+  background-color: #00bcd4;
+  color: #121212;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 5px;
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+td.actions a:hover {
+  background-color: #0097a7;
+  color: #fff;
+}
+
+td.actions button {
+  width: 80px;
+  height: 36px;
+  background-color: #f44336;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  user-select: none;
+  padding: 0;  /* important to avoid button default padding */
+}
+
+td.actions button:hover {
+  background-color: #d32f2f;
+}
+
+
+
+  </style>
 </head>
 <body>
-    
-    <%- include('partials/navbar') %>
 
-<h1>นักมวยทั้งหมด</h1>
-<a href="/fighters/add">➕ เพิ่มนักมวย</a>
+  <%- include('partials/navbar') %>
 
-<table border="1">
-  <tr>
-    <th>รูป</th>
-    <th>ชื่อ</th>
-    <th>ค่าย</th>
-    <th>รุ่น</th>
-    <th>การจัดการ</th>
-  </tr>
-  <% fighters.forEach(f => { %>
-    <tr>
-      <td>
-        <% if (f.photo) { %>
-          <img src="<%= f.photo %>" width="60" alt="Photo">
-        <% } else { %>
-          ไม่มีรูป
-        <% } %>
-      </td>
-      <td><%= f.name %></td>
-      <td><%= f.camp %></td>
-      <td><%= f.weight_class %></td>
-      <td>
-        <a href="/fighters/edit/<%= f.id %>">✏️ แก้ไข</a>
-        <form method="POST" action="/fighters/delete/<%= f.id %>" style="display:inline">
-          <button type="submit">🗑️ ลบ</button>
-        </form>
-      </td>
-    </tr>
-  <% }) %>
-</table>
+  <h1>นักมวยทั้งหมด</h1>
+  <a href="/fighters/add" class="add-fighter">➕ เพิ่มนักมวย</a>
+
+  <table>
+    <thead>
+      <tr>
+        <th>รูป</th>
+        <th>ชื่อ</th>
+        <th>ค่าย</th>
+        <th>รุ่น</th>
+        <th>การจัดการ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% fighters.forEach(f => { %>
+        <tr>
+          <td>
+            <% if (f.photo) { %>
+              <img src="<%= f.photo %>" alt="Photo ของ <%= f.name %>">
+            <% } else { %>
+              <span class="no-photo">ไม่มีรูป</span>
+            <% } %>
+          </td>
+          <td><%= f.name %></td>
+          <td><%= f.camp %></td>
+          <td><%= f.weight_class %></td>
+          <td class="actions">
+  <a href="/fighters/edit/<%= f.id %>">✏️ แก้ไข</a>
+  <form method="POST" action="/fighters/delete/<%= f.id %>">
+  <button type="submit">🗑️ ลบ</button>
+</form>
+</td>
+
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <script>
+  const urlParams = new URLSearchParams(window.location.search);
+  const error = urlParams.get('error');
+
+  if (error === 'hasMatch') {
+    alert('ไม่สามารถลบนักแข่งที่มีข้อมูลที่กำลังอยู่ตารางแข่งขันได้');
+  } else if (error === 'internal') {
+    alert('เกิดข้อผิดพลาดภายในระบบ');
+  } else if (error === 'delete') {
+    alert('ลบนักชกไม่สำเร็จ กรุณาลองใหม่');
+  }
+</script>
 
 </body>
 </html>
