@@ -249,7 +249,7 @@ app.get('/match/create', (req, res) => {
   //   res.json({ success: true, message: 'Connecting to COM ports...' });
   // });
 app.post('/match/create', (req, res) => {
-  const { fighter1_id, fighter2_id } = req.body;
+  const { fighter1_id, fighter2_id, fight_date } = req.body;
 
   if (!isCOM4Connected || !isCOM5Connected) {
     return res.status(400).send('Bluetooth devices not connected');
@@ -257,7 +257,7 @@ app.post('/match/create', (req, res) => {
 
   const sql = `
     INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date)
-    VALUES (?, ?, CURDATE())`;
+  VALUES (?, ?, ?)`;
 
   db.query(sql, [fighter1_id, fighter2_id], (err) => {
     if (err) return res.status(500).send('Create match failed');
