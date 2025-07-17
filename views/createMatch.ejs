@@ -91,7 +91,9 @@
 </div>
 
 <form id="matchForm" method="POST" action="/match/create">
-
+  <label for="fight_date">เลือกวันแข่งขัน</label>
+  <input type="date" id="fight_date" name="fight_date" required />
+  
   <label for="fighter1">เลือกนักชกคนที่ 1</label>
   <select id="fighter1" name="fighter1_id" required>
     <% fighters.forEach(f => { %>
