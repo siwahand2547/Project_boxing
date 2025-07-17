@@ -223,31 +223,7 @@ app.get('/match/create', (req, res) => {
       res.render('createMatch', { fighters });
     });
   });
-  // app.post('/match/connect', (req, res) => {
-  //   const { com4, com5 } = req.body;
-  
-  //   if (portCOM4) portCOM4.close();
-  //   portCOM4 = new SerialPort({ path: com4, baudRate: 9600 }, (err) => {
-  //     if (err) {
-  //       isCOM4Connected = false;
-  //       return res.status(500).json({ success: false, message: 'COM4 connect failed' });
-  //     }
-  //     isCOM4Connected = true;
-  //     setupParser(portCOM4, 'COM4');
-  //   });
-  
-  //   if (portCOM5) portCOM5.close();
-  //   portCOM5 = new SerialPort({ path: com5, baudRate: 9600 }, (err) => {
-  //     if (err) {
-  //       isCOM5Connected = false;
-  //       return res.status(500).json({ success: false, message: 'COM5 connect failed' });
-  //     }
-  //     isCOM5Connected = true;
-  //     setupParser(portCOM5, 'COM5');
-  //   });
-  
-  //   res.json({ success: true, message: 'Connecting to COM ports...' });
-  // });
+
 app.post('/match/create', (req, res) => {
   const { fighter1_id, fighter2_id, fight_date } = req.body;
 
@@ -281,69 +257,7 @@ app.get('/match', (req, res) => {
 });
 
 
-//-------------------------------------ตัวtest
-app.get('/test', (req, res) => {
-    res.render('test', { isCOM6Connected });
-  });
-// ======== เชื่อมต่อ COM6 ทันทีเมื่อรัน server =========
-// const COM6_PORT = 'COM6'; // <-- ใส่พอร์ตของคุณตรงนี้ เช่น COM6, COM7
-// let bufferValues = [];
-// let waitingBelowThreshold = false;
-// let lastReceiveTime = Date.now();
 
-// function setupCOM6() {
-//   portCOM6 = new SerialPort({ path: COM6_PORT, baudRate: 9600 }, (err) => {
-//     if (err) {
-//       console.error('❌ ไม่สามารถเชื่อมต่อ COM6 อัตโนมัติ:', err.message);
-//       return;
-//     }
-
-//     isCOM6Connected = true;
-//     console.log('✅ เชื่อมต่อ COM6 อัตโนมัติสำเร็จ');
-//     io.emit('com6Status', true);
-
-    
-//     const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
-
-//     parser.on('data', (rawData) => {
-//       const data = parseInt(rawData);
-
-//       console.log(data);
-
-//       if (isNaN(data)) return;
-
-
-//       lastReceiveTime = Date.now();
-
-//       if (data >= 1000) {
-//         bufferValues.push(data);
-//         waitingBelowThreshold = true;
-//       } else if (waitingBelowThreshold && bufferValues.length > 0) {
-//         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-//         console.log('✅ ค่าเฉลี่ยที่เก็บได้:', avg);
-//         io.emit('com6Data', avg);
-//         bufferValues = [];
-//         waitingBelowThreshold = false;
-//       }
-//     });
-
-//     setInterval(() => {
-//       const now = Date.now();
-//       if (bufferValues.length > 0 && now - lastReceiveTime > 2000) {
-//         const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-//         console.log('⏱️ Timeout - ค่าเฉลี่ยจาก COM6:', avg);
-//         io.emit('com6Data', avg);
-//         bufferValues = [];
-//         waitingBelowThreshold = false;
-//       }
-//     }, 500);
-//   });
-// }
-
-app.get('/test-com4', (req, res) => {
-  res.render('testCOM4', { isCOM4Connected });
-});
 
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 app.get('/fights/data/:id', (req, res) => { 
