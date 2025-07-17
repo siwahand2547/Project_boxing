@@ -338,10 +338,89 @@ db.query(sqlMaxRound, [id], (err4, roundResult) => {
     fightDataGrouped: groupedByRound,
     fighterIdNameMap,
     roundNumberStart: maxRound + 1 , // ✅ ส่งยกถัดไป
-    datafight: datafightResults
+    
   });
 });
 
+      });
+    });
+  });
+});
+
+app.post('/match/summary', (req, res) => {
+  const { schedulefightId } = req.body;
+
+  if (!schedulefightId) {
+    return res.json({ success: false, message: 'ไม่พบข้อมูลการแข่งขัน' });
+  }
+
+  // ดึงคะแนนแยกตามยก และ fighterid
+  const sql = `
+    SELECT round, fighterid, COUNT(*) AS hits
+    FROM datafight
+    WHERE schedulefight_id = ?
+    GROUP BY round, fighterid
+    ORDER BY round ASC
+  `;
+
+  db.query(sql, [schedulefightId], (err, results) => {
+    if (err) return res.json({ success: false, message: 'ดึงข้อมูลล้มเหลว' });
+    if (results.length === 0) return res.json({ success: false, message: 'ไม่มีข้อมูลการแข่งขัน' });
+
+    // ดึง fighter id ทั้งหมดในแมตช์ เพื่อใช้ดึงชื่อ
+    const fighterIds = [...new Set(results.map(r => r.fighterid))];
+
+    const sqlFighters = `SELECT id, name FROM fighters WHERE id IN (?)`;
+
+    db.query(sqlFighters, [fighterIds], (err2, fighters) => {
+      if (err2) return res.json({ success: false, message: 'ดึงข้อมูลนักชกล้มเหลว' });
+
+      const fighterMap = {};
+      fighters.forEach(f => fighterMap[f.id] = f.name);
+
+      // รวมผลคะแนนแต่ละยกในรูปแบบ
+      // { round: 1, scores: { fighterId1: hits, fighterId2: hits }, winnerId }
+      const summaryByRound = [];
+
+      // แยกข้อมูลตามยก
+      const rounds = [...new Set(results.map(r => r.round))];
+
+      rounds.forEach(round => {
+        const roundData = results.filter(r => r.round === round);
+
+        const scores = {};
+        roundData.forEach(r => {
+          scores[r.fighterid] = r.hits;
+        });
+
+        // สมมติ fighter มี 2 คน
+        const [fighter1Id, fighter2Id] = fighterIds;
+
+        const score1 = scores[fighter1Id] || 0;
+        const score2 = scores[fighter2Id] || 0;
+
+        let winnerId = null;
+        if (score1 > score2) winnerId = fighter1Id;
+        else if (score2 > score1) winnerId = fighter2Id;
+        else winnerId = null; // เสมอ
+
+        summaryByRound.push({
+          round,
+          scores: {
+            [fighter1Id]: score1,
+            [fighter2Id]: score2
+          },
+          winnerId
+        });
+      });
+
+      res.json({
+        success: true,
+        summaryByRound,
+        fighters: {
+          [fighterIds[0]]: fighterMap[fighterIds[0]],
+          [fighterIds[1]]: fighterMap[fighterIds[1]]
+        }
       });
     });
   });
@@ -358,12 +437,11 @@ db.query(sqlMaxRound, [id], (err4, roundResult) => {
 
 
 
-
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 // setupCOM6();
 // ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
-const COM4_PORT = 'COM4';
-const COM5_PORT = 'COM5';
+const COM4_PORT = 'COM8';
+const COM5_PORT = 'COM10';
 const COM6_PORT = 'COM6';
 
 let bufferValues = [];
