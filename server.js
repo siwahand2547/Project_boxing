@@ -337,8 +337,7 @@ db.query(sqlMaxRound, [id], (err4, roundResult) => {
     schedulefightId: row.id,
     fightDataGrouped: groupedByRound,
     fighterIdNameMap,
-    roundNumberStart: maxRound + 1 , // ✅ ส่งยกถัดไป
-    datafight: datafightResults
+    roundNumberStart: maxRound + 1 // ✅ ส่งยกถัดไป
   });
 });
 
