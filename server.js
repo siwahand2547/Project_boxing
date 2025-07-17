@@ -235,7 +235,7 @@ app.post('/match/create', (req, res) => {
     INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date)
   VALUES (?, ?, ?)`;
 
-  db.query(sql, [fighter1_id, fighter2_id], (err) => {
+  db.query(sql, [fighter1_id, fighter2_id, fight_date], (err) => {
     if (err) return res.status(500).send('Create match failed');
     res.redirect('/match');
   });
