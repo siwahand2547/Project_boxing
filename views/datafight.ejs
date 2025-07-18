@@ -183,11 +183,16 @@
 </head>
 
 <body>
-  <div id="clipModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
-    background-color: rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
-  <div style="position:relative; background:#000; padding:20px; border-radius:8px; max-width: 90%; max-height: 90%;">
-    <span onclick="closeClipModal()" style="position:absolute; top:10px; right:15px; color:white; font-size:24px; cursor:pointer;">&times;</span>
-    <video id="clipVideo" width="800" controls autoplay style="max-width: 100%; max-height: 80vh;"></video>
+<div id="clipModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000000cc; justify-content:center; align-items:center;">
+  <div style="background:white; padding:20px; display:flex; flex-direction:column;">
+    <video id="replayVideo1" width="480" controls></video>
+    <video id="replayVideo2" width="480" controls></video>
+    <button onclick="document.getElementById('clipModal').style.display='none'">ปิด</button>
+  </div>
+</div>
+
+
+
   </div>
 </div>
 
@@ -254,6 +259,12 @@
 
 <div class="clear"></div>
 
+<!-- เพิ่มเลือกกล้อง -->
+<select id="cameraSelect" multiple></select>
+
+<!-- แสดง preview หลายกล้อง -->
+<div id="videoContainer" style="display: flex; gap: 10px;"></div>
+
 <!-- ปุ่มควบคุมการบันทึก -->
 <button onclick="startRecording()">🎥 กดเริ่มการแข่งขัน</button>
 <button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
@@ -300,13 +311,12 @@
         <td><%= item.time %></td>
         <td><%= fighterName %></td>
         <td><%= item.fighterdetail %></td>
-        <td>
-          <% if (item.clipdetail) { %>
-            <button class="watch-btn openClipBtn" data-url="<%= item.clipdetail %>" data-timehit="<%= item.timehit %>">ดูคลิป</button>
-          <% } else { %>
-            ไม่มีคลิป
-          <% } %>
-        </td>
+<td>
+  <button onclick="openClipModalURLs('<%= row.clipdetail %>', '<%= row.clipdetail2 %>', '<%= row.timehit %>')">
+    ดูคลิป
+  </button>
+</td>
+
       </tr>
     <% }) %>
     </tbody>
@@ -321,12 +331,37 @@
 
 <script>
   const socket = io();
-  let mediaRecorder;
-  let recordedChunks = [];
-  let recordedVideoUrl = null;
+ // let mediaRecorder;
+  //let recordedChunks = [];
+  //let recordedVideoUrl = null;
   let timestampList = [];
-  let realtimeData = []; // เก็บข้อมูล realtime ทั้งหมดระหว่างบันทึก
-  let startTime = null;
+ // let realtimeData = []; // เก็บข้อมูล realtime ทั้งหมดระหว่างบันทึก
+ // let startTime = null;
+
+  //กล้องหลายตัว
+//  let mediaRecorders = [];
+let streams = [];
+//let recordedBlobsList = [];
+//let videoStreams = [];
+
+//let mediaRecorder1, mediaRecorder2;
+//let recordedChunks1 = [], recordedChunks2 = [];
+//let recordedVideoUrl1, recordedVideoUrl2;
+///////////////////new/////////////////////////////////////////////
+let mediaRecorders = [];
+let recordedChunksArray = [];
+let videoStreams = [];
+
+let mediaRecorder1, mediaRecorder2;
+let recordedChunks1 = [], recordedChunks2 = [];
+let recordedVideoUrl1, recordedVideoUrl2;
+
+let startTime = null;
+let realtimeData = []; // เก็บข้อมูล realtime ระหว่างบันทึก
+let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
+let roundsData = []; // เก็บข้อมูลแต่ละยก
+///////////////////new/////////////////////////////////////////////
+
 
   //สรุปผลคะแนน
   const btnSummary = document.getElementById('btnSummary');
@@ -404,37 +439,187 @@ closeModal.addEventListener('click', () => {
 });
   //สรุปผลคะแนน
   
-let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
+//let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
 
-  let roundsData = []; // เก็บข้อมูล realtime + fightDuration ของแต่ละยก
+  //let roundsData = []; // เก็บข้อมูล realtime + fightDuration ของแต่ละยก
 
 
-  function startRecording() {
-    startTime = Date.now(); // ⏱️ บันทึกเวลาเริ่มการแข่งขัน
-    recordedChunks = [];
-    timestampList = [];
-    realtimeData = []; // เคลียร์ข้อมูลเก่า
+ // เริ่มบันทึกกล้อง 2 ตัว
+async function startRecording() {
+  startTime = Date.now();
+  realtimeData = [];
+  mediaRecorders = [];
+  recordedChunksArray = [];
+  videoStreams = [];
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        document.getElementById('stopBtn').disabled = false;
-        const videoPreview = document.getElementById('replayVideo');
-        videoPreview.srcObject = stream;
-        videoPreview.style.display = 'block';
-        videoPreview.muted = true;
-        videoPreview.play();
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === 'videoinput');
 
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    const selectedDevices = videoDevices.slice(0, 2); // กล้อง 2 ตัวแรก
 
-        // ลบ onstop จากนี้ เพื่อป้องกันซ้ำซ้อน
-        // mediaRecorder.onstop = () => { ... };
+    if (selectedDevices.length === 0) {
+      alert('ไม่พบกล้องวิดีโอ');
+      return;
+    }
 
-        mediaRecorder.start();
-        alert('เริ่มการแข่งขันและเริ่มบันทึกวิดีโอแล้ว!');
-      })
-      .catch(err => alert('ไม่สามารถเปิดกล้องได้: ' + err.message));
+    for (let i = 0; i < selectedDevices.length; i++) {
+      const device = selectedDevices[i];
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: device.deviceId },
+        audio: true
+      });
+
+      videoStreams.push(stream);
+      recordedChunksArray[i] = [];
+
+      const videoPreview = document.getElementById(`replayVideo${i + 1}`);
+      videoPreview.srcObject = stream;
+      videoPreview.style.display = 'block';
+      videoPreview.muted = true;
+      videoPreview.play();
+
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksArray[i].push(e.data);
+        }
+      };
+      mediaRecorder.start();
+
+      mediaRecorders.push(mediaRecorder);
+    }
+
+    // กำหนดตัวแปร mediaRecorder1, mediaRecorder2, recordedChunks1, recordedChunks2 ให้ตรงกัน
+    mediaRecorder1 = mediaRecorders[0];
+    mediaRecorder2 = mediaRecorders[1];
+    recordedChunks1 = recordedChunksArray[0];
+    recordedChunks2 = recordedChunksArray[1];
+
+    document.getElementById('stopBtn').disabled = false;
+    alert('เริ่มการแข่งขันและเริ่มบันทึกจากหลายกล้องแล้ว!');
+  } catch (err) {
+    alert('ไม่สามารถเปิดกล้องได้: ' + err.message);
   }
+}
+
+// หยุดบันทึกและอัปโหลดวิดีโอ 2 ตัว
+async function stopRecording() {
+  if (
+    mediaRecorder1 && mediaRecorder1.state !== 'inactive' &&
+    mediaRecorder2 && mediaRecorder2.state !== 'inactive'
+  ) {
+
+    // สร้าง Promise รอการหยุดของแต่ละ MediaRecorder
+    let stop1 = new Promise(resolve => {
+      mediaRecorder1.onstop = () => resolve(new Blob(recordedChunks1, { type: 'video/webm' }));
+    });
+    let stop2 = new Promise(resolve => {
+      mediaRecorder2.onstop = () => resolve(new Blob(recordedChunks2, { type: 'video/webm' }));
+    });
+
+    mediaRecorder1.stop();
+    mediaRecorder2.stop();
+    document.getElementById('stopBtn').disabled = true;
+
+    try {
+      const [blob1, blob2] = await Promise.all([stop1, stop2]);
+
+      // แสดง preview ทั้งสองกล้อง
+      const preview1 = document.getElementById('replayVideo1');
+      const preview2 = document.getElementById('replayVideo2');
+
+      recordedVideoUrl1 = URL.createObjectURL(blob1);
+      recordedVideoUrl2 = URL.createObjectURL(blob2);
+
+      preview1.srcObject = null;
+      preview1.src = recordedVideoUrl1;
+      preview1.controls = true;
+      preview1.muted = false;
+
+      preview2.srcObject = null;
+      preview2.src = recordedVideoUrl2;
+      preview2.controls = true;
+      preview2.muted = false;
+
+      // อัปโหลดวิดีโอทั้งสอง
+      const formData1 = new FormData();
+      formData1.append('video', blob1, 'camera1.webm');
+
+      const formData2 = new FormData();
+      formData2.append('video', blob2, 'camera2.webm');
+
+      const [uploadRes1, uploadRes2] = await Promise.all([
+        fetch('/upload-video', { method: 'POST', body: formData1 }),
+        fetch('/upload-video', { method: 'POST', body: formData2 })
+      ]);
+
+      const uploadData1 = await uploadRes1.json();
+      const uploadData2 = await uploadRes2.json();
+
+      if (!uploadData1.success || !uploadData2.success) {
+        throw new Error('การอัปโหลดวิดีโอล้มเหลว');
+      }
+
+      // คำนวณระยะเวลาแข่งขัน
+      const endTime = Date.now();
+      const durationMs = endTime - startTime;
+      const totalSeconds = Math.floor(durationMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const fightDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+      // ส่งข้อมูลไปบันทึกในฐานข้อมูล (clip_url และ clip_url2)
+      const saveRes = await fetch('/datafight/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schedulefight_id: "<%= schedulefightId %>",
+          clip_url: uploadData1.url,
+          clip_url2: uploadData2.url,
+          time: fightDuration,
+          data: realtimeData.map(d => ({ label: d.label, value: d.value })),
+          round: roundNumber
+        })
+      });
+
+      roundNumber++;
+      roundsData.push({
+        round: roundNumber,
+        fightDuration,
+        videoUrls: {
+          cam1: uploadData1.url,
+          cam2: uploadData2.url
+        },
+        data: [...realtimeData]
+      });
+
+      renderFightRounds();
+
+      const saveData = await saveRes.json();
+      if (!saveData.success) throw new Error('บันทึกลงฐานข้อมูลล้มเหลว');
+
+      alert('บันทึกวิดีโอทั้ง 2 กล้องและข้อมูลเรียบร้อยแล้ว!');
+    } catch (err) {
+      alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
+  }
+}
+
+
+  ///////////////////////////////////////////////กล้องหลายตัว ////////////////////////////////////////////////
+  async function getCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameras = devices.filter(device => device.kind === 'videoinput');
+  const select = document.getElementById('cameraSelect');
+  cameras.forEach((camera, i) => {
+    const option = document.createElement('option');
+    option.value = camera.deviceId;
+    option.textContent = camera.label || `กล้อง ${i+1}`;
+    select.appendChild(option);
+  });
+}
+  ///////////////////////////////////////////////กล้องหลายตัว ////////////////////////////////////////////////
 
   // ฟัง socket event แค่ชุดเดียว
   // แล้วเวลา get ข้อมูล realtime จาก socket ก็ตัดเวลาเพิ่มเข้าไป เช่น
@@ -450,139 +635,89 @@ socket.on('com4Data', (data) => {
   addTableRow('com5Table', data);
 });
 
- // สมมติเพิ่มเวลาที่โดนชกแบบตัวอย่าง (คุณต้องปรับให้เก็บเวลานี้จากข้อมูลจริง)
-function addRealtimeData(label, value, timeHitSec = 0) {
-  // ตัวอย่างเก็บ data พร้อมเวลาที่โดนชก (timeHitSec)
-  realtimeData.push({ label, value: value + '|' + timeHitSec });
+
+
+function addTableRow(tableId, data) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const tr = document.createElement('tr');
+  const elapsedMs = Date.now() - startTime;
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const min = Math.floor(elapsedSec / 60);
+  const sec = elapsedSec % 60;
+  const elapsedStr = `${min}:${sec.toString().padStart(2, '0')}`;
+
+  tr.innerHTML = `
+    <td>${elapsedStr}</td>
+    <td>${data}</td>
+  `;
+
+  tbody.appendChild(tr);
+  tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+  // ถ้ามีฟังก์ชัน addTimestamp ใช้ที่นี่
+}
+function openClipModalURLs(cam1Url, cam2Url, timehit) {
+  openClipModal({ cam1: cam1Url, cam2: cam2Url }, timehit);
 }
 
-  function addTableRow(tableId, data) {
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    const tr = document.createElement('tr');
-    const elapsedMs = Date.now() - startTime;
-const elapsedSec = Math.floor(elapsedMs / 1000);
-const min = Math.floor(elapsedSec / 60);
-const sec = elapsedSec % 60;
-const elapsedStr = `${min}:${sec.toString().padStart(2, '0')}`;
-
-tr.innerHTML = `
-  <td>${elapsedStr}</td>
-  <td>${data}</td>
-`;
-
-    tbody.appendChild(tr);
-    tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
-    addTimestamp(`${tableId === 'com4Table' ? 'นักชก1' : 'นักชก2'}: ${data}`);
-  }
-
- function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      recordedVideoUrl = URL.createObjectURL(blob);
-
-      const videoPreview = document.getElementById('replayVideo');
-      videoPreview.srcObject = null;
-      videoPreview.src = recordedVideoUrl;
-      videoPreview.controls = true;
-      videoPreview.muted = false;
-      videoPreview.style.display = 'block';
-
-      const formData = new FormData();
-      formData.append('video', blob, 'fight.webm');
-
-      try {
-        const uploadRes = await fetch('/upload-video', {
-          method: 'POST',
-          body: formData
-        });
-        const uploadData = await uploadRes.json();
-        if (!uploadData.success) throw new Error(uploadData.message || 'Upload failed');
-
-        // ✅ คำนวณระยะเวลาการแข่งขัน
-        const endTime = Date.now();
-        const durationMs = endTime - startTime;
-        const totalSeconds = Math.floor(durationMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const fightDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        // ✅ ส่งข้อมูลรวมเวลา
-        const saveRes = await fetch('/datafight/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            schedulefight_id: "<%= schedulefightId %>",
-            clip_url: uploadData.url,
-            time: fightDuration, // ✅ ส่งเวลาที่ใช้
-            data: realtimeData.map(d => ({ label: d.label, value: d.value })),
-            round: roundNumber
-          })
-        });
-                // 🟩 เพิ่มยกใหม่ใน roundsData
-roundNumber++;  // เพิ่มยกต่อจากเลขที่เริ่มต้นมา
-roundsData.push({
-  round: roundNumber,
-  fightDuration,
-  videoUrl: uploadData.url,
-  data: [...realtimeData]
-});
-
-
-        // แสดงข้อมูลย้อนหลังของยก
-        renderFightRounds();
-
-        const saveData = await saveRes.json();
-        if (!saveData.success) throw new Error('Save to DB failed');
-
-        alert('บันทึกวิดีโอและข้อมูลเรียบร้อยแล้ว');
-      } catch (error) {
-        alert('เกิดข้อผิดพลาด: ' + error.message);
-      }
-    };
-    mediaRecorder.stop();
-    document.getElementById('stopBtn').disabled = true;
-  }
-}
-
-  function openClipModal(url, timehit) {
+function openClipModal(url, timehit) {
   const modal = document.getElementById('clipModal');
-  const video = document.getElementById('clipVideo');
-  video.src = url;
+  const video1 = document.getElementById('replayVideo1');
+  const video2 = document.getElementById('replayVideo2');
+
+  // ตั้งค่า URL สำหรับกล้อง 1 และ 2
+  video1.src = url.cam1 || '';
+  video2.src = url.cam2 || '';
+
   modal.style.display = 'flex';
 
-  video.onloadedmetadata = () => {
-  let seconds = hhmmssToSeconds(timehit);
-  seconds = Math.max(0, seconds - 2); // ย้อนกลับ 2 วิ แต่ไม่ต่ำกว่า 0
-  video.currentTime = seconds;
-  video.play();
-};
-}
-
-  function closeClipModal() {
-    const modal = document.getElementById('clipModal');
-    const video = document.getElementById('clipVideo');
+  // หยุดและตั้งเวลาวิดีโอ
+  [video1, video2].forEach(video => {
     video.pause();
     video.currentTime = 0;
-    video.src = '';
-    modal.style.display = 'none';
+  });
+
+  if (timehit) {
+    const seconds = hhmmssToSeconds(timehit);
+    const seekTime = Math.max(0, seconds - 2);
+    video1.currentTime = seekTime;
+    video2.currentTime = seekTime;
   }
 
-   function hhmmssToSeconds(hhmmss) {
-    const parts = hhmmss.split(':').map(Number);
-    if (parts.length === 3) {
-      const [h, m, s] = parts;
-      return h * 3600 + m * 60 + s;
-    }
-    return 0;
+  video1.play();
+  video2.play();
+}
+
+function closeClipModal() {
+  const modal = document.getElementById('clipModal');
+  const video1 = document.getElementById('replayVideo1');
+  const video2 = document.getElementById('replayVideo2');
+
+  video1.pause();
+  video2.pause();
+  video1.src = '';
+  video2.src = '';
+  modal.style.display = 'none';
+}
+
+// แปลง hh:mm:ss เป็นวินาที
+function hhmmssToSeconds(hhmmss) {
+  const parts = hhmmss.split(':').map(Number);
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return h * 3600 + m * 60 + s;
   }
-  function formatSeconds(sec) {
+  return 0;
+}
+function formatSeconds(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
   return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
 }
-
+// ตัวอย่างฟังก์ชันเพิ่มข้อมูล realtime และแสดงตาราง (คุณปรับได้ตามจริง)
+function addRealtimeData(label, value, timeHitSec = 0) {
+  realtimeData.push({ label, value: value + '|' + timeHitSec });
+}
   document.querySelectorAll('.openClipBtn').forEach(btn => {
   btn.addEventListener('click', () => {
     const url = btn.dataset.url;
@@ -600,9 +735,10 @@ roundsData.push({
     });
   });
 
-  function renderFightRounds() {
+ // แสดงข้อมูลย้อนหลังยกต่าง ๆ
+function renderFightRounds() {
   const container = document.getElementById('fightRoundsContainer');
-  container.innerHTML = ''; // เคลียร์ก่อน
+  container.innerHTML = '';
 
   roundsData.forEach(round => {
     const table = document.createElement('table');
@@ -612,7 +748,7 @@ roundsData.push({
     const thead = document.createElement('thead');
     thead.innerHTML = `
       <tr>
-        <th colspan="4" style="text-align:left;">ข้อมูลการแข่งขันย้อนหลัง ยกที่ ${round.round-1}</th>
+        <th colspan="4" style="text-align:left;">ข้อมูลการแข่งขันย้อนหลัง ยกที่ ${round.round - 1}</th>
       </tr>
       <tr>
         <th>เวลาที่โดน</th>
@@ -629,13 +765,12 @@ roundsData.push({
       const fighterLabel = item.label;
       const timeDisplay = timehit ? formatSeconds(timehit) : '-';
 
-
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${timeDisplay}</td>
         <td>${fighterLabel}</td>
         <td>${value}</td>
-        <td><button class="watch-btn" onclick="openClipModal('${round.videoUrl}', '${timeDisplay}')">ดูคลิป</button></td>
+        <td><button class="watch-btn" onclick="openClipModal({ cam1: '${round.videoUrls.cam1}', cam2: '${round.videoUrls.cam2}' }, '${timeDisplay}')">ดูคลิป</button></td>
       `;
       tbody.appendChild(tr);
     });
