@@ -79,15 +79,54 @@
       background: #444;
       cursor: not-allowed;
     }
+
+    #loadingOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8);
+  color: #00ffff;
+  font-size: 24px;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.loadingContent {
+  padding: 20px 40px;
+  background: #222;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #00ffff;
+  text-align: center;
+}
   </style>
 </head>
 <body>
+  <!-- Loading overlay -->
+<div id="loadingOverlay" style="display:none;">
+  <div class="loadingContent">
+    🔄 กำลังเชื่อมต่อ COM กรุณารอสักครู่...
+  </div>
+</div>
 <%- include('partials/navbar') %>
 <h1>สร้างการแข่งขันใหม่</h1>
 
 <div class="status">
-  COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
-  COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span>
+  <!-- COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
+  COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span> -->
+  <form id="comForm">
+  <label for="com4">กรอกพอร์ต COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span></label>
+  <input type="text" id="com4" placeholder="เช่น COM4" required />
+
+  <label for="com5">กรอกพอร์ต COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span></label>
+  <input type="text" id="com5" placeholder="เช่น COM5" required />
+
+  <button type="submit">🔌 เชื่อมต่อ COM</button>
+</form>
+<button id="btnDisconnect" style="margin-top: 10px; width: 100%; padding: 12px; background: #ff4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+  ❌ ยกเลิกการเชื่อมต่อ COM
+</button>
 </div>
 
 <form id="matchForm" method="POST" action="/match/create">
@@ -122,6 +161,7 @@
     document.getElementById('statusCOM4').className = isCOM4Connected ? 'connected' : 'disconnected';
     document.getElementById('statusCOM5').textContent = isCOM5Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
     document.getElementById('statusCOM5').className = isCOM5Connected ? 'connected' : 'disconnected';
+
     document.getElementById('createMatchBtn').disabled = !(isCOM4Connected && isCOM5Connected);
   }
 
@@ -130,7 +170,53 @@
     isCOM5Connected = status.com5;
     updateStatus();
   });
+
+  socket.on('comStatusUpdate', ({ port, status }) => {
+    if (port === 'com4') isCOM4Connected = status;
+    else if (port === 'com5') isCOM5Connected = status;
+    updateStatus();
+  });
+
+  // ฟังก์ชันแสดง/ซ่อน overlay
+  function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+  }
+  function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+
+  // *** แยก event listener ออกมาให้ชัดเจน ***
+
+  // ฟอร์มเชื่อมต่อ COM
+  document.getElementById('comForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    showLoading();
+
+    const com4 = document.getElementById('com4').value.trim();
+    const com5 = document.getElementById('com5').value.trim();
+
+    socket.emit('connectCOMPorts', { com4, com5 });
+
+    // รอ 5 วินาทีแล้วรีโหลดหน้าเว็บ (overlay จะหาย)
+    setTimeout(() => {
+      window.location.reload();
+    }, 5000);
+  });
+
+  // ปุ่มยกเลิกการเชื่อมต่อ COM
+  document.getElementById('btnDisconnect').addEventListener('click', () => {
+    socket.emit('disconnectCOMPorts');
+
+    showLoading();
+
+    // รอ 5 วินาทีแล้วรีโหลดหน้าเว็บ (overlay จะหาย)
+    setTimeout(() => {
+      window.location.reload();
+    }, 5000);
+  });
 </script>
+
 
 </body>
 </html>
