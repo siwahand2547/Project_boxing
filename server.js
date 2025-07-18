@@ -440,8 +440,8 @@ app.post('/match/summary', (req, res) => {
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 // setupCOM6();
 // ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
-const COM4_PORT = 'COM8';
-const COM5_PORT = 'COM10';
+let COM4_PORT = 'COM4';
+let COM5_PORT = 'COM5';
 const COM6_PORT = 'COM6';
 
 let bufferValues = [];
@@ -496,6 +496,8 @@ function setupCOM4() {
   portCOM4 = new SerialPort({ path: COM4_PORT, baudRate: 9600 }, (err) => {
     if (err) {
       console.error('❌ COM4 connect failed:', err.message);
+      isCOM4Connected = false;
+      io.emit('comStatusUpdate', { port: 'com4', status: false });
       return;
     }
 
@@ -541,6 +543,8 @@ function setupCOM5() {
   portCOM5 = new SerialPort({ path: COM5_PORT, baudRate: 9600 }, (err) => {
     if (err) {
       console.error('❌ COM5 connect failed:', err.message);
+      isCOM5Connected = false;
+      io.emit('comStatusUpdate', { port: 'com5', status: false });
       return;
     }
 
@@ -580,6 +584,9 @@ function setupCOM5() {
     }, 500);
   });
 }
+
+
+
 // รับวิดีโอที่ client อัปโหลด
 app.post('/upload-video', upload.single('video'), (req, res) => {
   if (!req.file) {
@@ -712,4 +719,17 @@ server.listen(3000, () => console.log('Server running on http://localhost:3000')
 io.on('connection', (socket) => {
   console.log('Client connected');
   socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
+
+   socket.on('connectCOMPorts', ({ com4, com5, com6 }) => {
+    console.log(`🔌 ผู้ใช้ส่งพอร์ต: COM4=${com4}, COM5=${com5}, COM6=${com6}`);
+
+    if (com4) {
+      COM4_PORT = com4;
+      setupCOM4();
+    }
+    if (com5) {
+      COM5_PORT = com5;
+      setupCOM5();
+    }
+  });
 });
