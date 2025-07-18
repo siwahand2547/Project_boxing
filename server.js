@@ -440,8 +440,8 @@ app.post('/match/summary', (req, res) => {
 //---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
 // setupCOM6();
 // ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
-const COM4_PORT = 'COM4';
-const COM5_PORT = 'COM5';
+const COM4_PORT = 'COM8';
+const COM5_PORT = 'COM10';
 const COM6_PORT = 'COM6';
 
 let bufferValues = [];
@@ -597,7 +597,7 @@ setupCOM5();
 setupCOM6();
 //-------------------------------------Record-----------------------------------------------------
 app.post('/datafight/save', (req, res) => {
-  const { schedulefight_id, clip_url, clip_url2, data, time , round } = req.body;
+  const { schedulefight_id, clip_url, data, time , round } = req.body;
 
   if (!data || data.length === 0) {
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -642,16 +642,15 @@ app.post('/datafight/save', (req, res) => {
         fighterid, 
         d.label + ' ' + details,
         clip_url,
-        clip_url2,           // เพิ่ม clipdetail2
         schedulefight_id,
         timehit,
-        round
+        round                 // ✅ เพิ่มรอบในการ insert
       ]);
     });
 
     const insertSQL = `
       INSERT INTO datafight 
-      (time, fighterid, fighterdetail, clipdetail, clipdetail2, schedulefight_id, timehit, round)
+      (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round)
       VALUES ?
     `;
 
@@ -665,7 +664,6 @@ app.post('/datafight/save', (req, res) => {
     });
   });
 });
-
 
 
 //-------------------------------------Record-----------------------------------------------------
