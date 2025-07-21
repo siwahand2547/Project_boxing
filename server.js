@@ -293,10 +293,10 @@ app.get('/fights/data/:id', (req, res) => {
     };
 
     const sqlDatafight = `
-      SELECT id, clipdetail, fighterdetail, time, timehit, fighterid, round
-      FROM datafight
-      WHERE schedulefight_id = ?
-      ORDER BY round ASC, id ASC
+      SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+  FROM datafight
+  WHERE schedulefight_id = ?
+  ORDER BY round ASC, id ASC
     `;
 
     db.query(sqlFighters, (err2, fightersList) => {
@@ -356,11 +356,10 @@ app.post('/match/summary', (req, res) => {
 
   // ดึงคะแนนแยกตามยก และ fighterid
   const sql = `
-    SELECT round, fighterid, COUNT(*) AS hits
-    FROM datafight
-    WHERE schedulefight_id = ?
-    GROUP BY round, fighterid
-    ORDER BY round ASC
+    SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+  FROM datafight
+  WHERE schedulefight_id = ?
+  ORDER BY round ASC, id ASC
   `;
 
   db.query(sql, [schedulefightId], (err, results) => {
@@ -628,7 +627,7 @@ app.post('/upload-video', upload.single('video'), (req, res) => {
 // setupCOM6();
 //-------------------------------------Record-----------------------------------------------------
 app.post('/datafight/save', (req, res) => {
-  const { schedulefight_id, clip_url, data, time , round } = req.body;
+  const { schedulefight_id, clip_url, clip_url2, data, time, round } = req.body;
 
   if (!data || data.length === 0) {
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -669,20 +668,21 @@ app.post('/datafight/save', (req, res) => {
       const timehit = secondsToTime(timeHitSeconds);
 
       insertData.push([
-        time,
-        fighterid, 
-        d.label + ' ' + details,
-        clip_url,
-        schedulefight_id,
-        timehit,
-        round                 // ✅ เพิ่มรอบในการ insert
-      ]);
+  time,
+  fighterid, 
+  d.label + ' ' + details,
+  clip_url,
+  schedulefight_id,
+  timehit,
+  round,
+  clip_url2   // ✅ เพิ่ม clip วิดีโอที่ 2
+]);
     });
 
     const insertSQL = `
       INSERT INTO datafight 
-      (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round)
-      VALUES ?
+  (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2)
+  VALUES ?
     `;
 
     db.query(insertSQL, [insertData], (err) => {
