@@ -34,6 +34,11 @@ let isCOM5Connected = false;
 let portCOM6;
 let isCOM6Connected = false;
 
+// ตัวแปรเก็บสถานะ COM ของนักชกแต่ละคน เช่น fighterId: COMport
+let fighterCOM = {};
+
+
+
 // ฟังก์ชันตั้งค่า Parser อ่านข้อมูลจาก COM ports
 function setupParser(port, label) {
     const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
@@ -742,6 +747,13 @@ server.listen(3000, () => console.log('Server running on http://localhost:3000')
 
 io.on('connection', (socket) => {
   console.log('Client connected');
+  
+   // ส่งสถานะ COM ของนักชกทั้ง 2 กลับไปเมื่อมี client เชื่อมต่อ
+  [1, 2].forEach(fighter => {
+    const com = fighterCOM[fighter];
+    socket.emit('sensorStatus', { fighter, com, connected: !!com });
+  });
+  
   socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
 
    socket.on('connectCOMPorts', ({ com4, com5, com6 }) => {
@@ -760,4 +772,41 @@ io.on('connection', (socket) => {
     disconnectCOM4();
     disconnectCOM5();
   });
+
+  //conectของdatafight
+
+
+socket.on('connectSensor', ({ fighter, com }) => {
+  console.log(`เชื่อมต่อ COM${com} สำหรับนักชก ${fighter}`);
+  
+  fighterCOM[fighter] = com; // เก็บสถานะ COM
+
+  if (fighter === 1) {
+    COM4_PORT = com;
+    setupCOM4();
+  } else if (fighter === 2) {
+    COM5_PORT = com;
+    setupCOM5();
+  }
+
+  // แจ้งสถานะกลับให้ client ทราบ
+  socket.emit('sensorStatus', { fighter, com, connected: true });
+});
+
+socket.on('disconnectSensor', ({ fighter }) => {
+  console.log(`ยกเลิกเชื่อมต่อ COM ของนักชก ${fighter}`);
+
+  fighterCOM[fighter] = null; // เคลียร์สถานะ
+
+  if (fighter === 1) {
+    disconnectCOM4();
+  } else if (fighter === 2) {
+    disconnectCOM5();
+  }
+
+  socket.emit('sensorStatus', { fighter, com: '', connected: false });
+});
+
+  //conectของdatafight
+
 });
