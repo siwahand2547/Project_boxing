@@ -131,7 +131,7 @@
       <% fights.forEach((fight, index) => { %>
         <tr>
           <td data-label="คู่ที่"><%= index + 1 %></td>
-          <td data-label="วันที่แข่งขัน"><%= fight.fight_date.toISOString().slice(0, 10) %></td>
+          <td data-label="วันที่แข่งขัน"><%= new Date(fight.fight_date).toLocaleDateString('sv-SE') %></td>
           <td data-label="นักชกคนที่ 1"><%= fight.fighter1 %></td>
           <td data-label="นักชกคนที่ 2"><%= fight.fighter2 %></td>
           <td data-label="เปรียบเทียบข้อมูล">
