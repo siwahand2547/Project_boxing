@@ -248,7 +248,7 @@ app.get('/match', (req, res) => {
     FROM schedulefight s
     JOIN fighters f1 ON s.fighterid_1 = f1.id
     JOIN fighters f2 ON s.fighterid_2 = f2.id
-    ORDER BY s.fight_date DESC`;
+    ORDER BY s.fight_date ASC`;
 
   db.query(sql, (err, fights) => {
     if (err) return res.status(500).send('DB error');
