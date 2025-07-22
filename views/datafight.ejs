@@ -203,15 +203,6 @@
   background: black;
   box-shadow: 0 0 15px rgba(0,0,0,0.7);
 }
-  .status-text {
-    margin-top: 8px;
-    font-weight: bold;
-    color: green;
-  }
-
-  .status-text.disconnected {
-    color: gray;
-  }
 </style>
 
 </head>
@@ -248,15 +239,7 @@
       <td><%= fighter1.name %></td>
       <td><%= fighter1.camp %></td>
       <td><%= fighter1.weight_class %></td>
-      <td>
-        <img src="<%= fighter1.photo %>" alt="fighter1" width="150">
-        <div style="margin-top: 10px;">
-          <input type="text" id="comInput1" placeholder="ระบุ COM เช่น COM4">
-          <button onclick="connectSensor(1)">เชื่อมต่อ</button>
-          <button onclick="disconnectSensor(1)">ยกเลิกเชื่อมต่อ</button>
-          <div id="status1" class="status-text"></div>
-        </div>
-      </td>
+      <td><img src="<%= fighter1.photo %>" alt="fighter1"></td>
     </tr>
   </tbody>
 </table>
@@ -270,21 +253,10 @@
       <td><%= fighter2.name %></td>
       <td><%= fighter2.camp %></td>
       <td><%= fighter2.weight_class %></td>
-      <td>
-        <img src="<%= fighter2.photo %>" alt="fighter2" width="150">
-        <div style="margin-top: 10px;">
-          <input type="text" id="comInput2" placeholder="ระบุ COM เช่น COM5">
-          <button onclick="connectSensor(2)">เชื่อมต่อ</button>
-          <button onclick="disconnectSensor(2)">ยกเลิกเชื่อมต่อ</button>
-          <div id="status2" class="status-text"></div>
-        </div>
-      </td>
+      <td><img src="<%= fighter2.photo %>" alt="fighter2"></td>
     </tr>
   </tbody>
 </table>
-
-
-
 
 <div class="clear"></div>
 
@@ -799,7 +771,7 @@ function closeClipModal() {
         <td>${timeDisplay}</td>
         <td>${fighterLabel}</td>
         <td>${value}</td>
-        <button class="watch-btn" onclick="openClipModal('${round.videoUrl}', '${round.videoUrl2}', '${timeDisplay}')">ดูคลิป 2 มุมพร้อมกัน</button>
+        <td><button class="watch-btn" onclick="openClipModal('${round.videoUrl}', '${timeDisplay}')">ดูคลิป</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -811,48 +783,6 @@ function closeClipModal() {
 }
 
 
-  function connectSensor(fighter) {
-    const com = document.getElementById(`comInput${fighter}`).value;
-    if (!com) {
-      alert('กรุณาระบุ COM พอร์ต เช่น COM4');
-      return;
-    }
-
-    socket.emit('connectSensor', { fighter, com });
-  }
-
-  function disconnectSensor(fighter) {
-    socket.emit('disconnectSensor', { fighter });
-  }
-
-  socket.on('sensorStatus', ({ fighter, com, connected }) => {
-    const status = document.getElementById(`status${fighter}`);
-    if (connected) {
-      status.innerText = `กำลังเชื่อมต่อ ${com}`;
-      status.classList.remove('disconnected');
-    } else {
-      status.innerText = 'ไม่ได้เชื่อมต่อ';
-      status.classList.add('disconnected');
-    }
-  });
-
-  function disconnectSensor(fighter) {
-    socket.emit('disconnectSensor', { fighter });
-    document.getElementById(`status${fighter}`).innerText = 'ไม่ได้เชื่อมต่อ';
-    document.getElementById(`status${fighter}`).classList.add('disconnected');
-  }
-
-  // รับสถานะเมื่อเชื่อมต่อสำเร็จ
-  socket.on('sensorStatus', ({ fighter, com, connected }) => {
-    const status = document.getElementById(`status${fighter}`);
-    if (connected) {
-      status.innerText = `กำลังเชื่อมต่อ ${com}`;
-      status.classList.remove('disconnected');
-    } else {
-      status.innerText = 'ไม่ได้เชื่อมต่อ';
-      status.classList.add('disconnected');
-    }
-  });
 
   
 </script>
