@@ -203,6 +203,9 @@
   background: black;
   box-shadow: 0 0 15px rgba(0,0,0,0.7);
 }
+
+.connected { color: #00ff00; font-weight: bold; }
+.disconnected { color: #ff4444; font-weight: bold; }
 </style>
 
 </head>
@@ -259,7 +262,12 @@
 </table>
 
 <div class="clear"></div>
-
+<p>
+  สถานะพอร์ต COM:
+  <br />
+  ➤ COM4: <span id="com4-status" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
+  ➤ COM5: <span id="com5-status" class="disconnected">ยังไม่เชื่อมต่อ</span>
+</p>
 <div class="realtime-container" id="realtime1">
   <h2>ข้อมูล Real-time นักชกคนที่ 1 (COM4)</h2>
   <table class="realtime-table" id="com4Table">
@@ -782,7 +790,16 @@ function closeClipModal() {
   });
 }
 
+socket.on('connectionStatus', ({ com4, com5 }) => {
+  const com4StatusEl = document.getElementById('com4-status');
+  const com5StatusEl = document.getElementById('com5-status');
 
+  com4StatusEl.textContent = com4 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  com4StatusEl.className = com4 ? 'connected' : 'disconnected';
+
+  com5StatusEl.textContent = com5 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  com5StatusEl.className = com5 ? 'connected' : 'disconnected';
+});
 
   
 </script>

@@ -112,21 +112,15 @@
 <%- include('partials/navbar') %>
 <h1>สร้างการแข่งขันใหม่</h1>
 
-<div class="status">
-  <!-- COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
-  COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span> -->
-  <form id="comForm">
-  <label for="com4">กรอกพอร์ต COM4: <span id="statusCOM4" class="disconnected">ยังไม่เชื่อมต่อ</span></label>
-  <input type="text" id="com4" placeholder="เช่น COM4" required />
+<p>
+  สถานะพอร์ต COM:
+  <br />
+  ➤ COM4: <span id="com4-status" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
+  ➤ COM5: <span id="com5-status" class="disconnected">ยังไม่เชื่อมต่อ</span>
+</p>
 
-  <label for="com5">กรอกพอร์ต COM5: <span id="statusCOM5" class="disconnected">ยังไม่เชื่อมต่อ</span></label>
-  <input type="text" id="com5" placeholder="เช่น COM5" required />
-
-  <button type="submit">🔌 เชื่อมต่อ COM</button>
-</form>
-<button id="btnDisconnect" style="margin-top: 10px; width: 100%; padding: 12px; background: #ff4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
-  ❌ ยกเลิกการเชื่อมต่อ COM
-</button>
+<div id="comNotice" style="margin-top: 15px; color: #ffcc00; font-weight: bold; display: none;">
+  ⚠️ กรุณา <a href="/connectCOM" style="color: #00bfff;">ไปเชื่อมต่อพอร์ต COM ก่อน</a> จึงจะสามารถสร้างการแข่งขันได้
 </div>
 
 <form id="matchForm" method="POST" action="/match/create">
@@ -153,68 +147,51 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
+
   let isCOM4Connected = false;
   let isCOM5Connected = false;
 
   function updateStatus() {
-    document.getElementById('statusCOM4').textContent = isCOM4Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
-    document.getElementById('statusCOM4').className = isCOM4Connected ? 'connected' : 'disconnected';
-    document.getElementById('statusCOM5').textContent = isCOM5Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
-    document.getElementById('statusCOM5').className = isCOM5Connected ? 'connected' : 'disconnected';
+  document.getElementById('com4-status').textContent = isCOM4Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  document.getElementById('com4-status').className = isCOM4Connected ? 'connected' : 'disconnected';
 
-    document.getElementById('createMatchBtn').disabled = !(isCOM4Connected && isCOM5Connected);
+  document.getElementById('com5-status').textContent = isCOM5Connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  document.getElementById('com5-status').className = isCOM5Connected ? 'connected' : 'disconnected';
+
+  const matchBtn = document.getElementById('createMatchBtn');
+  const notice = document.getElementById('comNotice');
+
+    const isBothConnected = isCOM4Connected && isCOM5Connected;
+    matchBtn.disabled = !isBothConnected;
+    notice.style.display = isBothConnected ? 'none' : 'block';
   }
 
-  socket.on('connectionStatus', status => {
-    isCOM4Connected = status.com4;
-    isCOM5Connected = status.com5;
+  socket.on('com4Status', (status) => {
+    isCOM4Connected = status === 'connected';
     updateStatus();
   });
 
-  socket.on('comStatusUpdate', ({ port, status }) => {
-    if (port === 'com4') isCOM4Connected = status;
-    else if (port === 'com5') isCOM5Connected = status;
+  socket.on('com5Status', (status) => {
+    isCOM5Connected = status === 'connected';
     updateStatus();
   });
 
-  // ฟังก์ชันแสดง/ซ่อน overlay
-  function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
-  }
-  function hideLoading() {
-    document.getElementById('loadingOverlay').style.display = 'none';
-  }
+  socket.on('connectionStatus', ({ com4, com5 }) => {
+  isCOM4Connected = com4;
+  isCOM5Connected = com5;
+  updateStatus();
+  const com4StatusEl = document.getElementById('com4-status');
+  const com5StatusEl = document.getElementById('com5-status');
 
-  // *** แยก event listener ออกมาให้ชัดเจน ***
+  com4StatusEl.textContent = com4 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  com4StatusEl.className = com4 ? 'connected' : 'disconnected';
 
-  // ฟอร์มเชื่อมต่อ COM
-  document.getElementById('comForm').addEventListener('submit', (e) => {
-    e.preventDefault();
+  com5StatusEl.textContent = com5 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+  com5StatusEl.className = com5 ? 'connected' : 'disconnected';
+  
+});
 
-    showLoading();
-
-    const com4 = document.getElementById('com4').value.trim();
-    const com5 = document.getElementById('com5').value.trim();
-
-    socket.emit('connectCOMPorts', { com4, com5 });
-
-    // รอ 5 วินาทีแล้วรีโหลดหน้าเว็บ (overlay จะหาย)
-    setTimeout(() => {
-      window.location.reload();
-    }, 5000);
-  });
-
-  // ปุ่มยกเลิกการเชื่อมต่อ COM
-  document.getElementById('btnDisconnect').addEventListener('click', () => {
-    socket.emit('disconnectCOMPorts');
-
-    showLoading();
-
-    // รอ 5 วินาทีแล้วรีโหลดหน้าเว็บ (overlay จะหาย)
-    setTimeout(() => {
-      window.location.reload();
-    }, 5000);
-  });
+  updateStatus(); // ← เรียกครั้งแรกตอนโหลดหน้า
 </script>
 
 

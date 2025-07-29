@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>เชื่อมต่อพอร์ต COM</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      background: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav {
+      background: #1e1e1e;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      border-bottom: 1px solid #444;
+    }
+
+    nav a {
+      color: #eee;
+      text-decoration: none;
+      font-size: 15px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    nav a:hover {
+      background: #333;
+      color: #00ffff;
+    }
+
+    nav a.active {
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 40px auto;
+      background: #1f1f1f;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      text-align: left;
+      font-weight: bold;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 6px;
+      border: 1px solid #555;
+      background: #2b2b2b;
+      color: white;
+      border-radius: 6px;
+    }
+
+    button {
+      margin-top: 25px;
+      padding: 10px 18px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ✅ Navbar -->
+  <%- include('partials/navbar') %>
+
+  <div id="errorBox" style="display:none; color:#ff4444; margin: 10px 0; font-weight: bold;"></div>
+
+  <!-- ✅ เนื้อหาหลัก -->
+  <div class="container">
+    <h1>🔌 ตั้งค่าการเชื่อมต่อ COM</h1>
+    <div id="statusText" style="margin:20px 0; font-weight:bold; font-size:18px; color:#ff4444;">
+  ⚠️ ยังไม่เชื่อมต่อพอร์ต COM
+</div>
+
+    <form action="/connectCOM" method="POST">
+      <label for="com4">พอร์ต COM4:</label>
+      <input type="text" id="com4" name="com4" required>
+
+      <label for="com5">พอร์ต COM5:</label>
+      <input type="text" id="com5" name="com5" required>
+
+      <button type="submit">เชื่อมต่อ</button>
+      <button type="button" id="disconnectBtn" style="margin-left:10px; background-color: #dc3545;">ตัดการเชื่อมต่อ
+</button>
+    </form>
+  </div>
+
+</body>
+</html>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  function updateStatus(status) {
+    const statusText = document.getElementById('statusText');
+    if (status.com4 && status.com5) {
+      statusText.textContent = '✅ เชื่อมต่อ COM4 และ COM5 แล้ว';
+      statusText.style.color = '#00ff00';
+    } else if (status.com4 || status.com5) {
+      statusText.textContent = `⚠️ เชื่อมต่อบางพอร์ต: ${status.com4 ? 'COM4 ✔️' : ''} ${status.com5 ? 'COM5 ✔️' : ''}`;
+      statusText.style.color = '#ffaa00';
+    } else {
+      statusText.textContent = '⚠️ ยังไม่เชื่อมต่อพอร์ต COM';
+      statusText.style.color = '#ff4444';
+    }
+  }
+
+  function showError(message) {
+    const errorBox = document.getElementById('errorBox');
+    errorBox.textContent = message;
+    errorBox.style.display = 'block';
+  }
+
+  function clearError() {
+    const errorBox = document.getElementById('errorBox');
+    errorBox.textContent = '';
+    errorBox.style.display = 'none';
+  }
+
+  socket.on('connectionStatus', (status) => {
+    clearError();
+    updateStatus(status);
+  });
+
+  socket.on('connectionError', (message) => {
+    showError('❌ เกิดข้อผิดพลาด: ' + message);
+    updateStatus({ com4: false, com5: false });
+  });
+
+  // ✅ ฟอร์มเชื่อมต่อ
+  document.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearError();
+    const com4 = document.getElementById('com4').value.trim();
+    const com5 = document.getElementById('com5').value.trim();
+    socket.emit('connectCOMPorts', { com4, com5 });
+  });
+
+  // ✅ ปุ่มตัดการเชื่อมต่อ
+  document.getElementById('disconnectBtn').addEventListener('click', () => {
+  socket.emit('disconnectCOMPorts');
+    });
+</script>
+
+

@@ -425,9 +425,10 @@ app.post('/match/summary', (req, res) => {
   });
 });
 
-
-
-
+//----------------หน้าเชื่อมต่อCOM---------------
+app.get('/connectCOM', (req, res) => {
+  res.render('connectCOM');
+});
 
 
 
@@ -491,98 +492,130 @@ function setupCOM6() {
   });
 }
 
-function setupCOM4() {
-  portCOM4 = new SerialPort({ path: COM4_PORT, baudRate: 9600 }, (err) => {
-    if (err) {
-      console.error('❌ COM4 connect failed:', err.message);
-      isCOM4Connected = false;
-      io.emit('comStatusUpdate', { port: 'com4', status: false });
-      return;
-    }
 
-    isCOM4Connected = true;
-    console.log('✅ COM4 connected automatically');
-    io.emit('com4Status', true);
-
-    const parser = portCOM4.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-    parser.on('data', (rawData) => {
-      const data = parseInt(rawData);
-      console.log('📥 ข้อมูลดิบจาก COM4:', rawData);
-      if (isNaN(data)) return;
-
-      lastTimeCOM4 = Date.now();
-
-      if (data >= 1000) {
-        bufferCOM4.push(data);
-        waitingCOM4 = true;
-      } else if (waitingCOM4 && bufferCOM4.length > 0) {
-        const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
-        console.log('✅ COM4 avg:', avg);
-        io.emit('com4Data', avg);
-        bufferCOM4 = [];
-        waitingCOM4 = false;
+function setupCOM4(port) {
+  return new Promise((resolve, reject) => {
+    portCOM4 = new SerialPort({ path: port, baudRate: 9600 }, (err) => {
+      if (err) {
+        console.error('❌ COM4 connect failed:', err.message);
+        isCOM4Connected = false;
+        io.emit('comStatusUpdate', { port: 'com4', status: false });
+        reject(err);
+        return;
       }
+
+      isCOM4Connected = true;
+      console.log('✅ COM4 connected automatically');
+      io.emit('comStatusUpdate', { port: 'com4', status: true });
+      resolve();
+
+      const parser = portCOM4.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+      parser.on('data', (rawData) => {
+        const data = parseInt(rawData);
+        console.log('📥 ข้อมูลดิบจาก COM4:', rawData);
+        if (isNaN(data)) return;
+
+        lastTimeCOM4 = Date.now();
+
+        if (data >= 1000) {
+          bufferCOM4.push(data);
+          waitingCOM4 = true;
+        } else if (waitingCOM4 && bufferCOM4.length > 0) {
+          const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
+          console.log('✅ COM4 avg:', avg);
+          io.emit('com4Data', avg);
+          bufferCOM4 = [];
+          waitingCOM4 = false;
+        }
+      });
+
+      setInterval(() => {
+        const now = Date.now();
+        if (bufferCOM4.length > 0 && now - lastTimeCOM4 > 2000) {
+          const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
+          console.log('⏱️ Timeout COM4 avg:', avg);
+          io.emit('com4Data', avg);
+          bufferCOM4 = [];
+          waitingCOM4 = false;
+        }
+      }, 500);
+      resolve();
     });
-
-    setInterval(() => {
-      const now = Date.now();
-      if (bufferCOM4.length > 0 && now - lastTimeCOM4 > 2000) {
-        const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
-        console.log('⏱️ Timeout COM4 avg:', avg);
-        io.emit('com4Data', avg);
-        bufferCOM4 = [];
-        waitingCOM4 = false;
-      }
-    }, 500);
   });
 }
 
 
-function setupCOM5() {
-  portCOM5 = new SerialPort({ path: COM5_PORT, baudRate: 9600 }, (err) => {
-    if (err) {
-      console.error('❌ COM5 connect failed:', err.message);
+let intervalCOM5 = null;
+
+function setupCOM5(port) {
+  return new Promise((resolve, reject) => {
+    portCOM5 = new SerialPort({ path: port, baudRate: 9600 }, (err) => {
+      if (err) {
+        console.error('❌ COM5 connect failed:', err.message);
+        isCOM5Connected = false;
+        io.emit('comStatusUpdate', { port: 'com5', status: false });
+        reject(err);
+        return;
+      }
+
+      isCOM5Connected = true;
+      console.log('✅ COM5 connected automatically');
+      io.emit('comStatusUpdate', { port: 'com5', status: true });
+
+      const parser = portCOM5.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+      parser.on('data', (rawData) => {
+        const data = parseInt(rawData);
+        console.log('📥 ข้อมูลดิบจาก COM5:', rawData);
+        if (isNaN(data)) return;
+
+        lastTimeCOM5 = Date.now();
+
+        if (data >= 1000) {
+          bufferCOM5.push(data);
+          waitingCOM5 = true;
+        } else if (waitingCOM5 && bufferCOM5.length > 0) {
+          const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
+          console.log('✅ COM5 avg:', avg);
+          io.emit('com5Data', avg);
+          bufferCOM5 = [];
+          waitingCOM5 = false;
+        }
+      });
+
+      if (intervalCOM5) clearInterval(intervalCOM5);
+      intervalCOM5 = setInterval(() => {
+        const now = Date.now();
+        if (bufferCOM5.length > 0 && now - lastTimeCOM5 > 2000) {
+          const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
+          console.log('⏱️ Timeout COM5 avg:', avg);
+          io.emit('com5Data', avg);
+          bufferCOM5 = [];
+          waitingCOM5 = false;
+        }
+      }, 500);
+
+      // ควร resolve หลังตั้ง listener เสร็จ
+      resolve();
+    });
+
+    // Optional: handle port close / error events
+    portCOM5.on('close', () => {
+      console.log('COM5 port closed');
       isCOM5Connected = false;
       io.emit('comStatusUpdate', { port: 'com5', status: false });
-      return;
-    }
-
-    isCOM5Connected = true;
-    console.log('✅ COM5 connected automatically');
-    io.emit('com5Status', true);
-
-    const parser = portCOM5.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-    parser.on('data', (rawData) => {
-      const data = parseInt(rawData);
-      console.log('📥 ข้อมูลดิบจาก COM5:', rawData); 
-      if (isNaN(data)) return;
-
-      lastTimeCOM5 = Date.now();
-
-      if (data >= 1000) {
-        bufferCOM5.push(data);
-        waitingCOM5 = true;
-      } else if (waitingCOM5 && bufferCOM5.length > 0) {
-        const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
-        console.log('✅ COM5 avg:', avg);
-        io.emit('com5Data', avg);
-        bufferCOM5 = [];
-        waitingCOM5 = false;
-      }
+      if (intervalCOM5) clearInterval(intervalCOM5);
     });
 
-    setInterval(() => {
-      const now = Date.now();
-      if (bufferCOM5.length > 0 && now - lastTimeCOM5 > 2000) {
-        const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
-        console.log('⏱️ Timeout COM5 avg:', avg);
-        io.emit('com5Data', avg);
-        bufferCOM5 = [];
-        waitingCOM5 = false;
-      }
-    }, 500);
+    portCOM5.on('error', (err) => {
+      console.error('COM5 port error:', err.message);
+      isCOM5Connected = false;
+      io.emit('comStatusUpdate', { port: 'com5', status: false });
+      if (intervalCOM5) clearInterval(intervalCOM5);
+    });
   });
 }
+
 
 function disconnectCOM4() {
   if (portCOM4 && portCOM4.isOpen) {
@@ -735,29 +768,65 @@ app.post('/match/delete/:id', (req, res) => {
 
 //------------------------------------ลบ match-------------------------------------
 
+//------------------------------------ส่งสถานะ COM--------------------------------
+let comStatus = {
+  com4: false,
+  com5: false,
+};
 
+io.on('connection', (socket) => {
+  console.log('🔌 Client connected');
+
+  // ส่งสถานะล่าสุดเมื่อหน้าเชื่อมต่อ
+  socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
+
+  socket.on('connectCOMPorts', async ({ com4, com5 }) => {
+    try {
+      if (com4) await setupCOM4(com4);
+      if (com5) await setupCOM5(com5);
+
+      // Broadcast ให้ทุกหน้า (ทุก socket) ทราบสถานะล่าสุด
+      io.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
+    } catch (err) {
+      console.error('❌ Error connecting COM ports:', err.message);
+      socket.emit('connectionError', err.message);
+    }
+  });
+
+  // (เพิ่มเติม) รองรับการตัดการเชื่อมต่อ COM
+  socket.on('disconnectCOMPorts', () => {
+    disconnectCOM4();
+    disconnectCOM5();
+    isCOM4Connected = false;
+    isCOM5Connected = false;
+    io.emit('connectionStatus', { com4: false, com5: false });
+  });
+});
+
+
+//------------------------------------ส่งสถานะ COM--------------------------------
 
 //app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));
 
-io.on('connection', (socket) => {
-  console.log('Client connected');
-  socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
+// io.on('connection', (socket) => {
+//   console.log('Client connected');
+//   socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
 
-   socket.on('connectCOMPorts', ({ com4, com5, com6 }) => {
-    console.log(`🔌 ผู้ใช้ส่งพอร์ต: COM4=${com4}, COM5=${com5}, COM6=${com6}`);
+//    socket.on('connectCOMPorts', ({ com4, com5, com6 }) => {
+//     console.log(`🔌 ผู้ใช้ส่งพอร์ต: COM4=${com4}, COM5=${com5}, COM6=${com6}`);
 
-    if (com4) {
-      COM4_PORT = com4;
-      setupCOM4();
-    }
-    if (com5) {
-      COM5_PORT = com5;
-      setupCOM5();
-    }
-  });
-  socket.on('disconnectCOMPorts', () => {
-    disconnectCOM4();
-    disconnectCOM5();
-  });
-});
+//     if (com4) {
+//       COM4_PORT = com4;
+//       setupCOM4();
+//     }
+//     if (com5) {
+//       COM5_PORT = com5;
+//       setupCOM5();
+//     }
+//   });
+//   socket.on('disconnectCOMPorts', () => {
+//     disconnectCOM4();
+//     disconnectCOM5();
+//   });
+// });
