@@ -271,8 +271,9 @@
 <div class="realtime-container" id="realtime1">
   <h2>ข้อมูล Real-time นักชกคนที่ 1 (COM4)</h2>
   <table class="realtime-table" id="com4Table">
-    <thead><tr><th>เวลา</th><th>ข้อมูล</th></tr></thead>
-
+    <thead>
+      <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล</th></tr>
+    </thead>
     <tbody></tbody>
   </table>
 </div>
@@ -280,8 +281,9 @@
 <div class="realtime-container" id="realtime2">
   <h2>ข้อมูล Real-time นักชกคนที่ 2 (COM5)</h2>
   <table class="realtime-table" id="com5Table">
-    <thead><tr><th>เวลา</th><th>ข้อมูล</th></tr></thead>
-
+    <thead>
+      <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล</th></tr>
+    </thead>
     <tbody></tbody>
   </table>
 </div>
@@ -451,7 +453,8 @@ let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart
 
 
 function startRecording() {
-  startTime = Date.now();
+  startTime = Date.now(); // รีเซ็ต startTime เสมอเมื่อเริ่มการบันทึก
+  console.log('🔄 startRecording: startTime set to', startTime); // ดีบั๊ก
   recordedChunks1 = [];
   recordedChunks2 = [];
   timestampList = [];
@@ -507,41 +510,71 @@ function startRecording() {
   // ฟัง socket event แค่ชุดเดียว
   // แล้วเวลา get ข้อมูล realtime จาก socket ก็ตัดเวลาเพิ่มเข้าไป เช่น
 socket.on('com4Data', (data) => {
-  const currentTimeSec = Math.floor((Date.now() - startTime) / 1000);
-  addRealtimeData('นักชก1', data, currentTimeSec);
-  addTableRow('com4Table', data);
+  console.log("📥 ได้ข้อมูลจาก COM4:", data);
+  const obj = JSON.parse(JSON.stringify(data)); // แปลงให้เป็น plain object
+  const currentTimeSec = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+  console.log('⏰ startTime:', startTime, 'currentTimeSec:', currentTimeSec); // ดีบั๊ก
+  Object.keys(obj).forEach(pos => {
+    const value = obj[pos];
+    console.log("👉 loop:", pos, value);
+    addRealtimeData('นักชก1', pos, value, currentTimeSec);
+    addTableRow('com4Table', pos, value, currentTimeSec);
+  });
 });
 
-  socket.on('com5Data', (data) => {
+
+socket.on('com5Data', (data) => {
+  console.log("📥 ได้ข้อมูลจาก COM5:", data);
+
+  const obj = JSON.parse(JSON.stringify(data)); // บังคับเป็น plain object
   const currentTimeSec = Math.floor((Date.now() - startTime) / 1000);
-  addRealtimeData('นักชก2', data, currentTimeSec);
-  addTableRow('com5Table', data);
+
+  Object.keys(obj).forEach(pos => {
+    const value = obj[pos];
+    console.log("👉 loop (COM5):", pos, value);
+    addRealtimeData('นักชก2', pos, value, currentTimeSec);
+    addTableRow('com5Table', pos, value, currentTimeSec);
+  });
 });
+
+
 
  // สมมติเพิ่มเวลาที่โดนชกแบบตัวอย่าง (คุณต้องปรับให้เก็บเวลานี้จากข้อมูลจริง)
-function addRealtimeData(label, value, timeHitSec = 0) {
-  // ตัวอย่างเก็บ data พร้อมเวลาที่โดนชก (timeHitSec)
-  realtimeData.push({ label, value: value + '|' + timeHitSec });
+function addRealtimeData(label, position, value, timeHitSec = 0) {
+  console.log(`💾 addRealtimeData: label=${label}, position=${position}, value=${value}, timeHitSec=${timeHitSec}`);
+  realtimeData.push({ 
+    label, 
+    position, 
+    value: `${value}|${timeHitSec}`, // รูปแบบเดิม: value|time
+    fighterdetail: `${label} ${value} ${position}` // เพิ่ม fighterdetail
+  });
 }
 
-  function addTableRow(tableId, data) {
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    const tr = document.createElement('tr');
-    const elapsedMs = Date.now() - startTime;
-const elapsedSec = Math.floor(elapsedMs / 1000);
-const min = Math.floor(elapsedSec / 60);
-const sec = elapsedSec % 60;
-const elapsedStr = `${min}:${sec.toString().padStart(2, '0')}`;
+function addTableRow(tableId, position, value, timeSec) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const tr = document.createElement('tr');
 
-tr.innerHTML = `
-  <td>${elapsedStr}</td>
-  <td>${data}</td>
-`;
-
-    tbody.appendChild(tr);
-    tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
-    addTimestamp(`${tableId === 'com4Table' ? 'นักชก1' : 'นักชก2'}: ${data}`);
+  let elapsedStr = '0:00'; // ค่าเริ่มต้นถ้าไม่มี startTime
+  if (startTime) {
+    const min = Math.floor(timeSec / 60);
+    const sec = timeSec % 60;
+    elapsedStr = `${min}:${sec.toString().padStart(2, '0')}`;
+  } else {
+    console.warn('⚠️ startTime ไม่ถูกตั้งค่า, ใช้เวลาเริ่มต้น 0:00');
   }
+
+  console.log(`Adding to ${tableId}: position=${position}, value=${value}, time=${elapsedStr}`);
+  tr.innerHTML = `
+    <td>${elapsedStr}</td>
+    <td>${position}</td>
+    <td>${value}</td>
+  `;
+  tbody.appendChild(tr);
+  tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+  addTimestamp(`${tableId === 'com4Table' ? 'นักชก1' : 'นักชก2'} - ${position}: ${value}`);
+}
+
+
 
 async function stopRecording() {
   if (mediaRecorder1 && mediaRecorder1.state !== 'inactive' && mediaRecorder2 && mediaRecorder2.state !== 'inactive') {
@@ -612,7 +645,12 @@ async function stopRecording() {
           clip_url: uploadData1.url,    // URL กล้อง 1
           clip_url2: uploadData2.url,   // URL กล้อง 2
           time: fightDuration,
-          data: realtimeData.map(d => ({ label: d.label, value: d.value })),
+          data: realtimeData.map(d => ({
+            label: d.label,
+            value: d.value,
+            position: d.position,
+            fighterdetail: d.fighterdetail // ส่ง fighterdetail เช่น "นักชก2 2659 chest"
+          })),
           round: roundNumber
         })
       });
@@ -624,7 +662,7 @@ async function stopRecording() {
       roundsData.push({
         round: roundNumber,
         fightDuration,
-        videoUrl: uploadData1.url,   // อันนี้ถ้าอยากเก็บกล้อง 1 เป็นหลัก
+        videoUrl: uploadData1.url,
         videoUrl2: uploadData2.url,
         data: [...realtimeData]
       });
@@ -634,6 +672,7 @@ async function stopRecording() {
       document.getElementById('stopBtn').disabled = true;
 
     } catch (error) {
+      console.error('เกิดข้อผิดพลาด:', error);
       alert('เกิดข้อผิดพลาด: ' + error.message);
     }
   } else {

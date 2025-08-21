@@ -510,36 +510,81 @@ function setupCOM4(port) {
       resolve();
 
       const parser = portCOM4.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+      let buffers = {
+        chest: [],
+        stomach: [],
+        left: [],
+        right: []
+      };
+      let waiting = false;
+      let lastTime = Date.now();
+
       parser.on('data', (rawData) => {
-        const data = parseInt(rawData);
         console.log('📥 ข้อมูลดิบจาก COM4:', rawData);
-        if (isNaN(data)) return;
+        const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
+        if (parts.length !== 4 || parts.some(isNaN)) {
+          console.error('🚫 ข้อมูลดิบไม่ถูกต้อง:', rawData);
+          return;
+        }
 
-        lastTimeCOM4 = Date.now();
+        lastTime = Date.now();
 
-        if (data >= 1000) {
-          bufferCOM4.push(data);
-          waitingCOM4 = true;
-        } else if (waitingCOM4 && bufferCOM4.length > 0) {
-          const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
-          console.log('✅ COM4 avg:', avg);
-          io.emit('com4Data', avg);
-          bufferCOM4 = [];
-          waitingCOM4 = false;
+        if (parts.some(val => val >= 1000)) {
+          buffers.chest.push(parts[0]);
+          buffers.stomach.push(parts[1]);
+          buffers.left.push(parts[2]);
+          buffers.right.push(parts[3]);
+          waiting = true;
+        } else if (waiting && buffers.chest.length > 0) {
+          const avgChest = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
+          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
+          const avgLeft = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
+          const avgRight = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
+
+          const result = {};
+          if (avgChest >= 1000) result.chest = avgChest;
+          if (avgStomach >= 1000) result.stomach = avgStomach;
+          if (avgLeft >= 1000) result.left = avgLeft;
+          if (avgRight >= 1000) result.right = avgRight;
+
+          if (Object.keys(result).length > 0) {
+            console.log('✅ COM4 avg (filtered):', result);
+            io.emit('com4Data', result);
+          } else {
+            console.log('⚠️ COM4 avg: ค่าเฉลี่ยทั้งหมด < 1000, ไม่ส่งข้อมูล');
+          }
+
+          buffers = { chest: [], stomach: [], left: [], right: [] };
+          waiting = false;
         }
       });
 
       setInterval(() => {
         const now = Date.now();
-        if (bufferCOM4.length > 0 && now - lastTimeCOM4 > 2000) {
-          const avg = Math.round(bufferCOM4.reduce((a, b) => a + b, 0) / bufferCOM4.length);
-          console.log('⏱️ Timeout COM4 avg:', avg);
-          io.emit('com4Data', avg);
-          bufferCOM4 = [];
-          waitingCOM4 = false;
+        if (waiting && now - lastTime > 2000 && buffers.chest.length > 0) {
+          const avgChest = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
+          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
+          const avgLeft = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
+          const avgRight = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
+
+          const result = {};
+          if (avgChest >= 1000) result.chest = avgChest;
+          if (avgStomach >= 1000) result.stomach = avgStomach;
+          if (avgLeft >= 1000) result.left = avgLeft;
+          if (avgRight >= 1000) result.right = avgRight;
+
+          if (Object.keys(result).length > 0) {
+            console.log('⏱️ Timeout COM4 avg (filtered):', result);
+            io.emit('com4Data', result);
+          } else {
+            console.log('⚠️ Timeout COM4 avg: ค่าเฉลี่ยทั้งหมด < 1000, ไม่ส่งข้อมูล');
+          }
+
+          buffers = { chest: [], stomach: [], left: [], right: [] };
+          waiting = false;
         }
       }, 500);
-      resolve();
     });
   });
 }
@@ -564,57 +609,97 @@ function setupCOM5(port) {
 
       const parser = portCOM5.pipe(new ReadlineParser({ delimiter: '\r\n' }));
 
+      // buffer สำหรับตำแหน่ง อก, ท้อง, ซ้าย, ขวา
+      let buffers = {
+        chest: [],
+        stomach: [],
+        left: [],
+        right: []
+      };
+      let waiting = false;
+      let lastTime = Date.now();
+
       parser.on('data', (rawData) => {
-        const data = parseInt(rawData);
         console.log('📥 ข้อมูลดิบจาก COM5:', rawData);
-        if (isNaN(data)) return;
 
-        lastTimeCOM5 = Date.now();
+        // split ค่า
+        const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
+        if (parts.length !== 4 || parts.some(isNaN)) return;
 
-        if (data >= 1000) {
-          bufferCOM5.push(data);
-          waitingCOM5 = true;
-        } else if (waitingCOM5 && bufferCOM5.length > 0) {
-          const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
-          console.log('✅ COM5 avg:', avg);
-          io.emit('com5Data', avg);
-          bufferCOM5 = [];
-          waitingCOM5 = false;
+        lastTime = Date.now();
+
+        // ถ้ามีค่ามากกว่า 1000 เก็บลง buffer
+        if (parts.some(val => val >= 1000)) {
+          buffers.chest.push(parts[0]);
+          buffers.stomach.push(parts[1]);
+          buffers.left.push(parts[2]);
+          buffers.right.push(parts[3]);
+          waiting = true;
+        } else if (waiting && buffers.chest.length > 0) {
+          // คำนวณค่าเฉลี่ยของแต่ละตำแหน่ง
+          const avgChest   = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
+          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
+          const avgLeft    = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
+          const avgRight   = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
+
+          const result = {
+            chest: avgChest,
+            stomach: avgStomach,
+            left: avgLeft,
+            right: avgRight
+          };
+
+          console.log('✅ COM5 avg:', result);
+          io.emit('com5Data', result);
+
+          // reset buffer
+          buffers = { chest: [], stomach: [], left: [], right: [] };
+          waiting = false;
         }
       });
 
-      if (intervalCOM5) clearInterval(intervalCOM5);
-      intervalCOM5 = setInterval(() => {
+      // timeout กรณีไม่มีข้อมูลใหม่
+      setInterval(() => {
         const now = Date.now();
-        if (bufferCOM5.length > 0 && now - lastTimeCOM5 > 2000) {
-          const avg = Math.round(bufferCOM5.reduce((a, b) => a + b, 0) / bufferCOM5.length);
-          console.log('⏱️ Timeout COM5 avg:', avg);
-          io.emit('com5Data', avg);
-          bufferCOM5 = [];
-          waitingCOM5 = false;
+        if (waiting && now - lastTime > 2000 && buffers.chest.length > 0) {
+          const avgChest   = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
+          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
+          const avgLeft    = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
+          const avgRight   = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
+
+          const result = {
+            chest: avgChest,
+            stomach: avgStomach,
+            left: avgLeft,
+            right: avgRight
+          };
+
+          console.log('⏱️ Timeout COM5 avg:', result);
+          io.emit('com5Data', result);
+
+          buffers = { chest: [], stomach: [], left: [], right: [] };
+          waiting = false;
         }
       }, 500);
 
-      // ควร resolve หลังตั้ง listener เสร็จ
       resolve();
     });
 
-    // Optional: handle port close / error events
+    // handle ปิดพอร์ตหรือ error
     portCOM5.on('close', () => {
       console.log('COM5 port closed');
       isCOM5Connected = false;
       io.emit('comStatusUpdate', { port: 'com5', status: false });
-      if (intervalCOM5) clearInterval(intervalCOM5);
     });
 
     portCOM5.on('error', (err) => {
       console.error('COM5 port error:', err.message);
       isCOM5Connected = false;
       io.emit('comStatusUpdate', { port: 'com5', status: false });
-      if (intervalCOM5) clearInterval(intervalCOM5);
     });
   });
 }
+
 
 
 function disconnectCOM4() {
@@ -663,13 +748,18 @@ app.post('/datafight/save', (req, res) => {
   const { schedulefight_id, clip_url, clip_url2, data, time, round } = req.body;
 
   if (!data || data.length === 0) {
+    console.error('⚠️ ไม่มีข้อมูลใน data:', data);
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
   }
 
+  console.log('📥 ข้อมูลที่ได้รับใน /datafight/save:', { schedulefight_id, clip_url, clip_url2, time, round, data });
+
   const sql = 'SELECT fighterid_1, fighterid_2 FROM schedulefight WHERE id = ?';
   db.query(sql, [schedulefight_id], (err, results) => {
-    if (err || results.length === 0) 
+    if (err || results.length === 0) {
+      console.error('🚫 ดึงข้อมูลนักชกล้มเหลว:', err || 'ไม่พบ schedulefight');
       return res.status(500).json({ success: false, message: 'ดึงข้อมูลนักชกล้มเหลว' });
+    }
 
     const fighter1 = results[0].fighterid_1;
     const fighter2 = results[0].fighterid_2;
@@ -680,7 +770,10 @@ app.post('/datafight/save', (req, res) => {
       let fighterid = null;
       if (d.label.includes('นักชก1')) fighterid = fighter1;
       else if (d.label.includes('นักชก2')) fighterid = fighter2;
-      if (!fighterid) return;
+      if (!fighterid) {
+        console.warn(`⚠️ ไม่พบ fighterid สำหรับ label: ${d.label}`);
+        return;
+      }
 
       let details = d.value;
       let timeHitSeconds = 0;
@@ -700,30 +793,41 @@ app.post('/datafight/save', (req, res) => {
 
       const timehit = secondsToTime(timeHitSeconds);
 
+      // ใช้ d.fighterdetail หากมี มิฉะนั้นสร้างจาก d.label + details + position
+      const fighterDetail = d.fighterdetail || `${d.label} ${details}${d.position ? ' ' + d.position : ''}`;
+
       insertData.push([
-  time,
-  fighterid, 
-  d.label + ' ' + details,
-  clip_url,
-  schedulefight_id,
-  timehit,
-  round,
-  clip_url2   // ✅ เพิ่ม clip วิดีโอที่ 2
-]);
+        time, // fightDuration จาก stopRecording
+        fighterid,
+        fighterDetail, // ใช้ fighterdetail จากไคลเอนต์ เช่น "นักชก2 2659 chest"
+        clip_url,
+        schedulefight_id,
+        timehit,
+        round,
+        clip_url2
+      ]);
     });
+
+    if (insertData.length === 0) {
+      console.error('⚠️ ไม่มีข้อมูลให้บันทึก:', insertData);
+      return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลให้บันทึก' });
+    }
 
     const insertSQL = `
       INSERT INTO datafight 
-  (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2)
-  VALUES ?
+      (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2)
+      VALUES ?
     `;
+
+    console.log('💾 ข้อมูลที่จะบันทึก:', insertData);
 
     db.query(insertSQL, [insertData], (err) => {
       if (err) {
-        console.error(err);
+        console.error('🚫 บันทึกข้อมูลล้มเหลว:', err);
         return res.status(500).json({ success: false, message: 'บันทึกข้อมูลล้มเหลว' });
       }
 
+      console.log('✅ บันทึกข้อมูลสำเร็จ:', { affectedRows: insertData.length });
       return res.json({ success: true });
     });
   });
