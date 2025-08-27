@@ -59,7 +59,7 @@ const updateConnectionStatus = () => {
   io.emit(SOCKET_EVENTS.CONNECTION_STATUS, status);
 };
 
-// Process sensor data (เกณฑ์ 2000, ไม่มีการตรวจสอบค่าเกิน 4095)
+// Process sensor data (เกณฑ์ 4000, ไม่มีการตรวจสอบค่าเกิน 4095)
 const processSensorData = (rawData, portName, state, emitEvent) => {
   console.log(`📥 ข้อมูลดิบจาก ${portName}: ${rawData}`);
   const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
@@ -78,18 +78,37 @@ const processSensorData = (rawData, portName, state, emitEvent) => {
     { name: 'right', value: rightVal }
   ];
   sensors.forEach(({ name, value }) => {
-    if (value >= 4000) { // เก็บค่า >= 2000 เข้า buffer (รวม 4095)
+    if (value >= 1500) { // เก็บค่า >= 4000 เข้า buffer
       state.buffers[name].push(value);
       state.waiting[name] = true;
       state.lastTime[name] = now;
     } else if (state.waiting[name] && state.buffers[name].length > 0) {
       const maxValue = Math.max(...state.buffers[name]);
-      if (maxValue >= 4000) result[name] = maxValue; // ส่งค่าสูงสุด
+      if (maxValue >= 1500) result[name] = maxValue; // ส่งค่าสูงสุด
       state.buffers[name] = [];
       state.waiting[name] = false;
     }
   });
   if (Object.keys(result).length > 0) {
+    // เพิ่มเงื่อนไข: ถ้ามีหลาย key ใน result และค่าทั้งหมดเท่ากัน ให้เลือกเฉพาะ key ตัวล่าสุดที่เข้ามา (right > left > stomach > chest) และล้าง buffer ทุกตัวเพื่อป้องกันค่าค้างซ้ำ
+    if (Object.keys(result).length > 1) {
+      const values = Object.values(result);
+      const firstValue = values[0];
+      const allEqual = values.every(v => v === firstValue);
+      if (allEqual) {
+        // ลำดับ reverse เพื่อหาตัวล่าสุด: right > left > stomach > chest
+        const sensorsOrder = ['right', 'left', 'stomach', 'chest'];
+        const lastKey = sensorsOrder.find(name => result[name]);
+        result = { [lastKey]: result[lastKey] };
+        console.log(`⚠️ ค่าหลาย sensor เท่ากัน เลือกเฉพาะตัวล่าสุด ${lastKey}: ${result[lastKey]}`);
+        // ล้าง buffer ทุก sensor เพื่อป้องกันค่าค้างซ้ำ
+        sensors.forEach(({ name }) => {
+          state.buffers[name] = [];
+          state.waiting[name] = false;
+        });
+      }
+    }
+
     console.log(`✅ ส่งข้อมูล ${portName}: ${JSON.stringify(result)}`);
     io.emit(emitEvent, result);
   }
@@ -207,12 +226,31 @@ setInterval(() => {
     sensors.forEach((name) => {
       if (state.waiting[name] && now - state.lastTime[name] > SENSOR_TIMEOUT && state.buffers[name].length > 0) {
         const maxValue = Math.max(...state.buffers[name]);
-        if (maxValue >= 4000) result[name] = maxValue; // ส่งค่าสูงสุด
+        if (maxValue >= 1500) result[name] = maxValue; // ส่งค่าสูงสุด
         state.buffers[name] = [];
         state.waiting[name] = false;
       }
     });
     if (Object.keys(result).length > 0) {
+      // เพิ่มเงื่อนไข: ถ้ามีหลาย key ใน result และค่าทั้งหมดเท่ากัน ให้เลือกเฉพาะ key ตัวล่าสุดที่เข้ามา (right > left > stomach > chest) และล้าง buffer ทุกตัวเพื่อป้องกันค่าค้างซ้ำ
+      if (Object.keys(result).length > 1) {
+        const values = Object.values(result);
+        const firstValue = values[0];
+        const allEqual = values.every(v => v === firstValue);
+        if (allEqual) {
+          // ลำดับ reverse เพื่อหาตัวล่าสุด: right > left > stomach > chest
+          const sensorsOrder = ['right', 'left', 'stomach', 'chest'];
+          const lastKey = sensorsOrder.find(name => result[name]);
+          result = { [lastKey]: result[lastKey] };
+          console.log(`⚠️ ค่าหลาย sensor เท่ากัน เลือกเฉพาะตัวล่าสุด ${lastKey}: ${result[lastKey]}`);
+          // ล้าง buffer ทุก sensor เพื่อป้องกันค่าค้างซ้ำ
+          sensors.forEach((name) => {
+            state.buffers[name] = [];
+            state.waiting[name] = false;
+          });
+        }
+      }
+
       console.log(`✅ ส่งข้อมูล ${portPath}: ${JSON.stringify(result)}`);
       io.emit(portPath === currentFighterPort1 ? SOCKET_EVENTS.COM_PORT_1_DATA : SOCKET_EVENTS.COM_PORT_2_DATA, result);
     }

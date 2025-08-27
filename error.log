@@ -461,3 +461,19 @@
 {"level":"error","message":"No data provided for datafight save","timestamp":"2025-08-26T11:28:49.728Z"}
 {"level":"error","message":"ข้อผิดพลาดการเชื่อมต่อ: พอร์ต COM4 ไม่มี","timestamp":"2025-08-27T11:49:42.551Z"}
 {"level":"error","message":"ล้มเหลว Fighter1: Opening COM10: Unknown error code 121","timestamp":"2025-08-27T11:50:22.153Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:14.059Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:16.066Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:18.070Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:19.975Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:20.077Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:21.992Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:24.007Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:51:26.024Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:01.185Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:03.197Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:05.212Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:07.218Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:55.759Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:57.778Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:53:59.787Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-08-27T11:54:01.794Z"}
