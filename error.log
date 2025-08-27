@@ -459,3 +459,5 @@
 {"level":"info","message":"ส่งสถานะ: {\"port1\":\"COM5\",\"connected1\":false,\"port2\":\"COM4\",\"connected2\":false}","timestamp":"2025-08-26T10:14:29.390Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2025-08-26T11:27:05.517Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2025-08-26T11:28:49.728Z"}
+{"level":"error","message":"ข้อผิดพลาดการเชื่อมต่อ: พอร์ต COM4 ไม่มี","timestamp":"2025-08-27T11:49:42.551Z"}
+{"level":"error","message":"ล้มเหลว Fighter1: Opening COM10: Unknown error code 121","timestamp":"2025-08-27T11:50:22.153Z"}

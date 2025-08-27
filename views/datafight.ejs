@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -537,12 +536,13 @@
         })
         .catch(err => {
           console.error('เกิดข้อผิดพลาด:', err);
-          alert('ไม่สามารถเริ่มบันทึกได้: ' + err.message);
+          alert('ไม่สามารถเปิดกล้องได้: ' + err.message);
         });
     }
 
     async function stopRecording() {
       const stopPromises = [];
+      let blob1 = null, blob2 = null;
       if (mediaRecorder1?.state !== 'inactive') {
         stopPromises.push(new Promise(resolve => {
           mediaRecorder1.onstop = () => resolve(new Blob(recordedChunks1, { type: 'video/webm' }));
@@ -558,22 +558,25 @@
 
       try {
         const blobs = await Promise.all(stopPromises);
-        const formData1 = mediaRecorder1?.state !== 'inactive' ? new FormData() : null;
-        if (formData1) formData1.append('video', blobs[0], 'fight_cam1.webm');
-        const formData2 = mediaRecorder2?.state !== 'inactive' ? new FormData() : null;
-        if (formData2) formData2.append('video', blobs[blobs.length - 1], 'fight_cam2.webm');
+        if (blobs.length > 0 && blobs[0] && blobs[0].size > 0) blob1 = blobs[0];
+        if (blobs.length > 1 && blobs[1] && blobs[1].size > 0) blob2 = blobs[blobs.length - 1];
 
         const uploadPromises = [];
-        if (formData1) uploadPromises.push(fetch('/upload-video', { method: 'POST', body: formData1 }));
-        if (formData2) uploadPromises.push(fetch('/upload-video', { method: 'POST', body: formData2 }));
-
-        const uploadResults = await Promise.allSettled(uploadPromises);
-        const uploadData1 = uploadResults[0]?.status === 'fulfilled' ? await uploadResults[0].value.json() : { success: false, url: '' };
-        const uploadData2 = uploadResults[1]?.status === 'fulfilled' ? await uploadResults[1].value.json() : { success: false, url: '' };
-
-        if (!uploadData1.success && !uploadData2.success) {
-          throw new Error('การอัปโหลดวิดีโอล้มเหลว');
+        let clipUrl1 = '', clipUrl2 = '';
+        if (blob1) {
+          const formData1 = new FormData();
+          formData1.append('video', blob1, 'fight_cam1.webm');
+          uploadPromises.push(fetch('/upload-video', { method: 'POST', body: formData1 }).then(res => res.json()));
         }
+        if (blob2) {
+          const formData2 = new FormData();
+          formData2.append('video', blob2, 'fight_cam2.webm');
+          uploadPromises.push(fetch('/upload-video', { method: 'POST', body: formData2 }).then(res => res.json()));
+        }
+
+        const uploadResults = await Promise.all(uploadPromises);
+        if (blob1 && uploadResults[0]?.success) clipUrl1 = uploadResults[0].url;
+        if (blob2 && uploadResults[1]?.success) clipUrl2 = uploadResults[1].url;
 
         const endTime = Date.now();
         const durationMs = endTime - startTime;
@@ -584,8 +587,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             schedulefight_id: "<%= schedulefightId %>",
-            clip_url: uploadData1.success ? uploadData1.url : '',
-            clip_url2: uploadData2.success ? uploadData2.url : '',
+            clip_url: clipUrl1,
+            clip_url2: clipUrl2,
             time: fightDuration,
             data: realtimeData,
             round: roundNumber
@@ -596,13 +599,13 @@
         roundsData.push({
           round: roundNumber,
           fightDuration,
-          videoUrl: uploadData1.success ? uploadData1.url : '',
-          videoUrl2: uploadData2.success ? uploadData2.url : '',
+          videoUrl: clipUrl1,
+          videoUrl2: clipUrl2,
           data: [...realtimeData]
         });
         roundNumber++;
         renderFightRounds();
-        alert('บันทึกวิดีโอและข้อมูลเรียบร้อยแล้ว');
+        alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
         document.getElementById('stopBtn').disabled = true;
 
         // หยุด stream กล้อง
