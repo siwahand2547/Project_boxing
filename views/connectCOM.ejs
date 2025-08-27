@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>เชื่อมต่อพอร์ต COM</title>
+  <title>เชื่อมต่อพอร์ตนักชก</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
@@ -13,7 +13,6 @@
       margin: 0;
       padding: 0;
     }
-
     nav {
       background: #1e1e1e;
       padding: 12px 20px;
@@ -23,7 +22,6 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
       border-bottom: 1px solid #444;
     }
-
     nav a {
       color: #eee;
       text-decoration: none;
@@ -33,18 +31,15 @@
       white-space: nowrap;
       transition: background 0.3s, color 0.3s;
     }
-
     nav a:hover {
       background: #333;
       color: #00ffff;
     }
-
     nav a.active {
       background: #007bff;
       color: white;
       font-weight: bold;
     }
-
     .container {
       max-width: 500px;
       margin: 40px auto;
@@ -54,18 +49,15 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.6);
       text-align: center;
     }
-
     h1 {
       margin-bottom: 20px;
     }
-
     label {
       display: block;
       margin-top: 15px;
       text-align: left;
       font-weight: bold;
     }
-
     input[type="text"] {
       width: 100%;
       padding: 10px;
@@ -76,7 +68,6 @@
       color: white;
       border-radius: 6px;
     }
-
     button {
       margin-top: 25px;
       padding: 10px 18px;
@@ -88,95 +79,174 @@
       cursor: pointer;
       transition: background-color 0.3s ease;
     }
-
     button:hover {
       background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    #errorBox, #timeoutBox {
+      display: none;
+      color: #ff4444;
+      margin: 10px 0;
+      font-weight: bold;
+      background: #2b2b2b;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .status-box {
+      margin: 20px 0;
+      font-size: 16px;
+    }
+    .status-box p {
+      margin: 5px 0;
+    }
+    .connected { color: #00ff00; font-weight: bold; }
+    .disconnected { color: #ff4444; font-weight: bold; }
+    #sensorData {
+      margin-top: 20px;
+      text-align: left;
+      background: #2b2b2b;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    #sensorData h3 {
+      margin-top: 0;
+    }
+    #sensorData p {
+      margin: 5px 0;
     }
   </style>
 </head>
 <body>
-
-  <!-- ✅ Navbar -->
   <%- include('partials/navbar') %>
-
-  <div id="errorBox" style="display:none; color:#ff4444; margin: 10px 0; font-weight: bold;"></div>
-
-  <!-- ✅ เนื้อหาหลัก -->
+  <div id="errorBox"></div>
+  <div id="timeoutBox"></div>
   <div class="container">
-    <h1>🔌 ตั้งค่าการเชื่อมต่อ COM</h1>
-    <div id="statusText" style="margin:20px 0; font-weight:bold; font-size:18px; color:#ff4444;">
-  ⚠️ ยังไม่เชื่อมต่อพอร์ต COM
-</div>
-
-    <form action="/connectCOM" method="POST">
-      <label for="com4">พอร์ต COM4:</label>
-      <input type="text" id="com4" name="com4" required>
-
-      <label for="com5">พอร์ต COM5:</label>
-      <input type="text" id="com5" name="com5" required>
-
+    <h1>🔌 ตั้งค่าการเชื่อมต่อพอร์ตนักชก</h1>
+    <div class="status-box">
+      <p>นักชก 1: <span id="fighter1-status" class="disconnected">ยังไม่เชื่อมต่อ</span></p>
+      <p>นักชก 2: <span id="fighter2-status" class="disconnected">ยังไม่เชื่อมต่อ</span></p>
+    </div>
+    <form id="connectForm">
+      <label for="fighterPort1">พอร์ตนักชก 1 (เช่น COM4):</label>
+      <input type="text" id="fighterPort1" name="fighterPort1" placeholder="COM4" required />
+      <label for="fighterPort2">พอร์ตนักชก 2 (เช่น COM5):</label>
+      <input type="text" id="fighterPort2" name="fighterPort2" placeholder="COM5" required />
       <button type="submit">เชื่อมต่อ</button>
-      <button type="button" id="disconnectBtn" style="margin-left:10px; background-color: #dc3545;">ตัดการเชื่อมต่อ
-</button>
+      <button type="button" id="disconnectBtn" style="margin-left:10px; background-color: #dc3545;">ตัดการเชื่อมต่อ</button>
+      <button type="button" id="testBtn" style="margin-left:10px; background-color: #28a745;" disabled>ทดสอบเซ็นเซอร์</button>
     </form>
+    <div id="sensorData">
+      <h3>ข้อมูลเซ็นเซอร์:</h3>
+      <p id="fighter1Data">นักชก 1: รอข้อมูล...</p>
+      <p id="fighter2Data">นักชก 2: รอข้อมูล...</p>
+    </div>
   </div>
 
+  <script>
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('Socket.IO connected');
+      socket.emit('requestConnectionStatus');
+    });
+
+    const updateStatus = ({ port1, connected1, port2, connected2 }) => {
+      console.log('Received connectionStatus:', { port1, connected1, port2, connected2 });
+      const fighter1Status = document.getElementById('fighter1-status');
+      const fighter2Status = document.getElementById('fighter2-status');
+      const testBtn = document.getElementById('testBtn');
+
+      fighter1Status.textContent = connected1 ? `เชื่อมต่อแล้ว (${port1 || 'ไม่ระบุ'})` : `ยังไม่เชื่อมต่อ (${port1 || 'ไม่ระบุ'})`;
+      fighter1Status.className = connected1 ? 'connected' : 'disconnected';
+
+      fighter2Status.textContent = connected2 ? `เชื่อมต่อแล้ว (${port2 || 'ไม่ระบุ'})` : `ยังไม่เชื่อมต่อ (${port2 || 'ไม่ระบุ'})`;
+      fighter2Status.className = connected2 ? 'connected' : 'disconnected';
+
+      testBtn.disabled = !(connected1 && connected2);
+    };
+
+    const showError = (message) => {
+      console.log('Error:', message);
+      const errorBox = document.getElementById('errorBox');
+      errorBox.textContent = `❌ เกิดข้อผิดพลาด: ${message}`;
+      errorBox.style.display = 'block';
+      setTimeout(() => errorBox.style.display = 'none', 5000);
+    };
+
+    const clearError = () => {
+      const errorBox = document.getElementById('errorBox');
+      errorBox.textContent = '';
+      errorBox.style.display = 'none';
+    };
+
+    socket.on('connectionStatus', (status) => {
+      console.log('Handling connectionStatus:', status);
+      updateStatus(status);
+    });
+
+    socket.on('connectionError', (message) => {
+      console.log('Connection error:', message);
+      showError(message);
+    });
+
+    socket.on('timeoutData', ({ port, data, message }) => {
+      console.log('Timeout data:', message);
+      const timeoutBox = document.getElementById('timeoutBox');
+      timeoutBox.textContent = message;
+      timeoutBox.style.display = 'block';
+      setTimeout(() => timeoutBox.style.display = 'none', 5000);
+    });
+
+    socket.on('COM_PORT_1_DATA', (data) => {
+      console.log('COM_PORT_1_DATA:', data);
+      const fighter1Data = document.getElementById('fighter1Data');
+      fighter1Data.textContent = `นักชก 1: ${JSON.stringify(data)}`;
+    });
+
+    socket.on('COM_PORT_2_DATA', (data) => {
+      console.log('COM_PORT_2_DATA:', data);
+      const fighter2Data = document.getElementById('fighter2Data');
+      fighter2Data.textContent = `นักชก 2: ${JSON.stringify(data)}`;
+    });
+
+    const connectForm = document.getElementById('connectForm');
+    connectForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearError();
+      const comPort1 = document.getElementById('fighterPort1').value.trim().toUpperCase();
+      const comPort2 = document.getElementById('fighterPort2').value.trim().toUpperCase();
+      if (!comPort1) return showError('กรุณากรอกพอร์ตนักชก 1');
+      if (!comPort2) return showError('กรุณากรอกพอร์ตนักชก 2');
+      if (comPort1 === comPort2) return showError('พอร์ตนักชก 1 และ 2 ต้องไม่ซ้ำกัน');
+      if (!comPort1.match(/^COM\d+$/) || !comPort2.match(/^COM\d+$/)) {
+        return showError('กรุณากรอกพอร์ตในรูปแบบ COMX (เช่น COM4, COM5)');
+      }
+      console.log('Emitting connectCOMPorts:', { fighterPort1: comPort1, fighterPort2: comPort2 });
+      socket.emit('connectCOMPorts', { fighterPort1: comPort1, fighterPort2: comPort2 });
+    });
+
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    disconnectBtn.addEventListener('click', () => {
+      console.log('Emitting disconnectCOMPorts');
+      socket.emit('disconnectCOMPorts');
+      document.getElementById('fighter1Data').textContent = 'นักชก 1: รอข้อมูล...';
+      document.getElementById('fighter2Data').textContent = 'นักชก 2: รอข้อมูล...';
+    });
+
+    const testBtn = document.getElementById('testBtn');
+    testBtn.addEventListener('click', () => {
+      alert('กรุณาทดสอบโดยการตีเซ็นเซอร์ของนักชก 1 และ 2 แล้วตรวจสอบข้อมูลด้านล่าง:\n' +
+            '- ถ้าข้อมูลนักชก 1 แสดงใน "นักชก 2" หรือกลับกัน ให้กรอกพอร์ตสลับกันแล้วกดเชื่อมต่อใหม่');
+    });
+
+    window.onload = () => {
+      console.log('Page loaded, emitting requestConnectionStatus');
+      socket.emit('requestConnectionStatus');
+    };
+  </script>
 </body>
 </html>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io();
-
-  function updateStatus(status) {
-    const statusText = document.getElementById('statusText');
-    if (status.com4 && status.com5) {
-      statusText.textContent = '✅ เชื่อมต่อ COM4 และ COM5 แล้ว';
-      statusText.style.color = '#00ff00';
-    } else if (status.com4 || status.com5) {
-      statusText.textContent = `⚠️ เชื่อมต่อบางพอร์ต: ${status.com4 ? 'COM4 ✔️' : ''} ${status.com5 ? 'COM5 ✔️' : ''}`;
-      statusText.style.color = '#ffaa00';
-    } else {
-      statusText.textContent = '⚠️ ยังไม่เชื่อมต่อพอร์ต COM';
-      statusText.style.color = '#ff4444';
-    }
-  }
-
-  function showError(message) {
-    const errorBox = document.getElementById('errorBox');
-    errorBox.textContent = message;
-    errorBox.style.display = 'block';
-  }
-
-  function clearError() {
-    const errorBox = document.getElementById('errorBox');
-    errorBox.textContent = '';
-    errorBox.style.display = 'none';
-  }
-
-  socket.on('connectionStatus', (status) => {
-    clearError();
-    updateStatus(status);
-  });
-
-  socket.on('connectionError', (message) => {
-    showError('❌ เกิดข้อผิดพลาด: ' + message);
-    updateStatus({ com4: false, com5: false });
-  });
-
-  // ✅ ฟอร์มเชื่อมต่อ
-  document.querySelector('form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    clearError();
-    const com4 = document.getElementById('com4').value.trim();
-    const com5 = document.getElementById('com5').value.trim();
-    socket.emit('connectCOMPorts', { com4, com5 });
-  });
-
-  // ✅ ปุ่มตัดการเชื่อมต่อ
-  document.getElementById('disconnectBtn').addEventListener('click', () => {
-  socket.emit('disconnectCOMPorts');
-    });
-</script>
-
-

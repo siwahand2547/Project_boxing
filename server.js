@@ -1,15 +1,32 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const path = require('path');
-
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
-
 const socketIo = require('socket.io');
+const multer = require('multer');
+const fs = require('fs');
+const winston = require('winston');
+const config = require('./config');
+const db = require('./db');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+const { COM_PORT_1, COM_PORT_2, BAUD_RATE, SENSOR_TIMEOUT, INTERVAL_CHECK, SOCKET_EVENTS, LOG_FILE } = config;
+
+// Logger setup
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: LOG_FILE }),
+    new winston.transports.Console()
+  ]
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -17,85 +34,323 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-const db = require('./db');
-// middleware
-const multer = require('multer');
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads/'),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
-const fs = require('fs');
 
-let portCOM4, portCOM5;
-let isCOM4Connected = false;
-let isCOM5Connected = false;
+// Serial port variables
+let portCOM1, portCOM2;
+let isCOM1Connected = false, isCOM2Connected = false;
+let currentFighterPort1 = null;
+let currentFighterPort2 = null;
+const portStates = new Map();
 
-let portCOM6;
-let isCOM6Connected = false;
+// Update connection status
+const updateConnectionStatus = () => {
+  const status = {
+    port1: currentFighterPort1,
+    connected1: isCOM1Connected,
+    port2: currentFighterPort2,
+    connected2: isCOM2Connected
+  };
+  io.emit(SOCKET_EVENTS.CONNECTION_STATUS, status);
+};
 
-// ฟังก์ชันตั้งค่า Parser อ่านข้อมูลจาก COM ports
-function setupParser(port, label) {
-    const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-    parser.on('data', (data) => {
-      console.log(`${label} data:`, data);
-      io.emit('btData', { port: label, data }); // ส่งข้อมูล realtime ไป client ผ่าน socket.io
+// Process sensor data (เกณฑ์ 2000, ไม่มีการตรวจสอบค่าเกิน 4095)
+const processSensorData = (rawData, portName, state, emitEvent) => {
+  console.log(`📥 ข้อมูลดิบจาก ${portName}: ${rawData}`);
+  const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
+  if (parts.length !== 4 || parts.some(isNaN)) {
+    console.error(`🚫 ข้อมูลไม่ถูกต้องจาก ${portName}: ${rawData}`);
+    logger.error(`ข้อมูลไม่ถูกต้องจาก ${portName}: ${rawData}`);
+    return;
+  }
+  const [chestVal, stomachVal, leftVal, rightVal] = parts;
+  const now = Date.now();
+  let result = {};
+  const sensors = [
+    { name: 'chest', value: chestVal },
+    { name: 'stomach', value: stomachVal },
+    { name: 'left', value: leftVal },
+    { name: 'right', value: rightVal }
+  ];
+  sensors.forEach(({ name, value }) => {
+    if (value >= 4000) { // เก็บค่า >= 2000 เข้า buffer (รวม 4095)
+      state.buffers[name].push(value);
+      state.waiting[name] = true;
+      state.lastTime[name] = now;
+    } else if (state.waiting[name] && state.buffers[name].length > 0) {
+      const maxValue = Math.max(...state.buffers[name]);
+      if (maxValue >= 4000) result[name] = maxValue; // ส่งค่าสูงสุด
+      state.buffers[name] = [];
+      state.waiting[name] = false;
+    }
+  });
+  if (Object.keys(result).length > 0) {
+    console.log(`✅ ส่งข้อมูล ${portName}: ${JSON.stringify(result)}`);
+    io.emit(emitEvent, result);
+  }
+};
+
+// Setup serial port with retry
+const setupFighterPort = (portPath, portName, emitEvent, maxRetries = 3) => {
+  let retryCount = 0;
+  const tryConnect = () => {
+    return new Promise((resolve) => {
+      console.log(`🔌 พยายามเชื่อมต่อ ${portName} (${portPath})`);
+      const port = new SerialPort({ path: portPath, baudRate: BAUD_RATE }, (err) => {
+        if (err) {
+          console.error(`❌ ล้มเหลว ${portName}: ${err.message}`);
+          logger.error(`ล้มเหลว ${portName}: ${err.message}`);
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 ลองใหม่ ${portName} (${retryCount}/${maxRetries})`);
+            setTimeout(tryConnect, 2000);
+            return;
+          }
+          console.log(`🚫 ไม่สามารถเชื่อมต่อ ${portName} (${portPath}) หลัง ${maxRetries} ครั้ง`);
+          io.emit(SOCKET_EVENTS.CONNECTION_ERROR, `ไม่สามารถเชื่อมต่อ ${portName} (${portPath}): ${err.message}`);
+          if (portName === 'Fighter1') isCOM1Connected = false;
+          else isCOM2Connected = false;
+          updateConnectionStatus();
+          resolve(null);
+        } else {
+          console.log(`✅ เชื่อมต่อ ${portName} สำเร็จ`);
+          if (portName === 'Fighter1') isCOM1Connected = true;
+          else isCOM2Connected = true;
+          portStates.set(portPath, {
+            buffers: { chest: [], stomach: [], left: [], right: [] },
+            waiting: { chest: false, stomach: false, left: false, right: false },
+            lastTime: { chest: Date.now(), stomach: Date.now(), left: Date.now(), right: Date.now() }
+          });
+          updateConnectionStatus();
+          resolve(port);
+
+          const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+          parser.on('data', (rawData) => processSensorData(rawData, portName, portStates.get(portPath), emitEvent));
+
+          port.on('close', () => {
+            console.log(`🔌 ${portName} ตัดการเชื่อมต่อ`);
+            portStates.delete(portPath);
+            if (portName === 'Fighter1') {
+              isCOM1Connected = false;
+              portCOM1 = null;
+            } else {
+              isCOM2Connected = false;
+              portCOM2 = null;
+            }
+            updateConnectionStatus();
+          });
+
+          port.on('error', (err) => {
+            console.error(`❌ ข้อผิดพลาด ${portName}: ${err.message}`);
+            io.emit(SOCKET_EVENTS.CONNECTION_ERROR, `ข้อผิดพลาด ${portName}: ${err.message}`);
+            updateConnectionStatus();
+          });
+        }
+      });
+    });
+  };
+  return tryConnect();
+};
+
+// Setup for Fighter 1
+const setupFighter1 = async (port) => {
+  isCOM1Connected = false;
+  return setupFighterPort(port, 'Fighter1', SOCKET_EVENTS.COM_PORT_1_DATA);
+};
+
+// Setup for Fighter 2
+const setupFighter2 = async (port) => {
+  isCOM2Connected = false;
+  return setupFighterPort(port, 'Fighter2', SOCKET_EVENTS.COM_PORT_2_DATA);
+};
+
+// Disconnect functions
+const disconnectFighter1 = () => {
+  if (portCOM1 && portCOM1.isOpen) {
+    portCOM1.close((err) => {
+      if (err) console.error('❌ ปิด Fighter1 ล้มเหลว:', err);
+      else {
+        isCOM1Connected = false;
+        portCOM1 = null;
+        console.log('🔌 Fighter1 ตัดการเชื่อมต่อ');
+      }
+      updateConnectionStatus();
     });
   }
+};
 
-// Home
+const disconnectFighter2 = () => {
+  if (portCOM2 && portCOM2.isOpen) {
+    portCOM2.close((err) => {
+      if (err) console.error('❌ ปิด Fighter2 ล้มเหลว:', err);
+      else {
+        isCOM2Connected = false;
+        portCOM2 = null;
+        console.log('🔌 Fighter2 ตัดการเชื่อมต่อ');
+      }
+      updateConnectionStatus();
+    });
+  }
+};
+
+// Single interval for all ports (ส่งค่าสูงสุด, ไม่มีการตรวจสอบค่าเกิน 4095)
+setInterval(() => {
+  const now = Date.now();
+  portStates.forEach((state, portPath) => {
+    let result = {};
+    const sensors = ['chest', 'stomach', 'left', 'right'];
+    sensors.forEach((name) => {
+      if (state.waiting[name] && now - state.lastTime[name] > SENSOR_TIMEOUT && state.buffers[name].length > 0) {
+        const maxValue = Math.max(...state.buffers[name]);
+        if (maxValue >= 4000) result[name] = maxValue; // ส่งค่าสูงสุด
+        state.buffers[name] = [];
+        state.waiting[name] = false;
+      }
+    });
+    if (Object.keys(result).length > 0) {
+      console.log(`✅ ส่งข้อมูล ${portPath}: ${JSON.stringify(result)}`);
+      io.emit(portPath === currentFighterPort1 ? SOCKET_EVENTS.COM_PORT_1_DATA : SOCKET_EVENTS.COM_PORT_2_DATA, result);
+    }
+  });
+}, INTERVAL_CHECK);
+
+// Routes (คงเดิม)
 app.get('/', (req, res) => res.redirect('/fighters'));
 
-// --------- Fighters CRUD ---------
-app.get('/fighters', (req, res) => {
-  db.query('SELECT * FROM fighters', (err, results) => {
-    if (err) return res.status(500).send('DB Error');
+app.get('/available-ports', async (req, res) => {
+  const maxRetries = 3;
+  let retryCount = 0;
+  while (retryCount < maxRetries) {
+    try {
+      const ports = await SerialPort.list();
+      console.log(`📋 พอร์ตที่มี: ${JSON.stringify(ports.map(p => p.path))}`);
+      res.json(ports.map(p => p.path));
+      return;
+    } catch (err) {
+      retryCount++;
+      console.error(`❌ ตรวจสอบพอร์ตล้มเหลว (ครั้งที่ ${retryCount}/${maxRetries}): ${err.message}`);
+      logger.error(`ตรวจสอบพอร์ตล้มเหลว (ครั้งที่ ${retryCount}/${maxRetries}): ${err.message}`);
+      if (retryCount === maxRetries) {
+        res.status(500).json({ success: false, message: 'ไม่สามารถตรวจหาพอร์ตได้' });
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+});
+
+app.get('/default-ports', (req, res) => {
+  res.json({ comPort1: COM_PORT_1, comPort2: COM_PORT_2 });
+});
+
+app.get('/fighters', async (req, res) => {
+  try {
+    const [results] = await db.pool.query('SELECT * FROM fighters');
     res.render('fighters', { fighters: results });
-  });
+  } catch (err) {
+    logger.error(`Error fetching fighters: ${err.message}`);
+    res.status(500).send('DB Error');
+  }
 });
 
 app.get('/fighters/add', (req, res) => res.render('addFighter'));
 
-
-app.get('/fighters/edit/:id', (req, res) => {
-  db.query('SELECT * FROM fighters WHERE id = ?', [req.params.id], (err, results) => {
-    if (err || results.length === 0) return res.status(404).send('Not found');
+app.get('/fighters/edit/:id', async (req, res) => {
+  try {
+    const [results] = await db.pool.query('SELECT * FROM fighters WHERE id = ?', [req.params.id]);
+    if (results.length === 0) return res.status(404).send('Not found');
     res.render('editFighter', { fighter: results[0] });
-  });
+  } catch (err) {
+    logger.error(`Error fetching fighter ${req.params.id}: ${err.message}`);
+    res.status(404).send('Not found');
+  }
 });
 
-
-
-app.post('/fighters/delete/:id', (req, res) => {
+app.post('/fighters/delete/:id', async (req, res) => {
   const fighterId = req.params.id;
-
-  const checkSql = 'SELECT COUNT(*) AS count FROM schedulefight WHERE fighterid_1 = ? OR fighterid_2 = ?';
-  db.query(checkSql, [fighterId, fighterId], (err, results) => {
-    if (err) {
-      console.error('Error checking schedulefight:', err);
-      return res.redirect('/fighters?error=internal');
-    }
-
-    if (results[0].count > 0) {
-      // ส่ง query param error กลับไปให้หน้า /fighters แสดง alert
+  let connection;
+  try {
+    connection = await db.pool.getConnection();
+    await connection.beginTransaction();
+    const [checkResults] = await connection.query(
+      'SELECT COUNT(*) AS count FROM schedulefight WHERE fighterid_1 = ? OR fighterid_2 = ?',
+      [fighterId, fighterId]
+    );
+    if (checkResults[0].count > 0) {
+      await connection.rollback();
       return res.redirect('/fighters?error=hasMatch');
     }
-
-    db.query('DELETE FROM fighters WHERE id = ?', [fighterId], (err) => {
-      if (err) {
-        console.error('Delete error:', err);
-        return res.redirect('/fighters?error=delete');
-      }
-      res.redirect('/fighters');
-    });
-  });
+    await connection.query('DELETE FROM fighters WHERE id = ?', [fighterId]);
+    await connection.commit();
+    res.redirect('/fighters');
+  } catch (err) {
+    if (connection) await connection.rollback();
+    logger.error(`Error deleting fighter ${fighterId}: ${err.message}`);
+    res.redirect('/fighters?error=delete');
+  } finally {
+    if (connection) connection.release();
+  }
 });
 
+app.post('/fighters/add', upload.single('photo'), async (req, res) => {
+  const { name, camp, weight_class } = req.body;
+  const photo = req.file ? '/uploads/' + req.file.filename : null;
+  try {
+    await db.pool.query(
+      'INSERT INTO fighters (name, camp, weight_class, photo) VALUES (?, ?, ?, ?)',
+      [name, camp, weight_class, photo]
+    );
+    res.redirect('/fighters');
+  } catch (err) {
+    logger.error(`Error adding fighter: ${err.message}`);
+    res.status(500).send('Insert error');
+  }
+});
 
+app.post('/fighters/edit/:id', upload.single('photo'), async (req, res) => {
+  const { name, camp, weight_class } = req.body;
+  const fighterId = req.params.id;
+  let connection;
+  try {
+    connection = await db.pool.getConnection();
+    await connection.beginTransaction();
+    const [results] = await connection.query('SELECT photo FROM fighters WHERE id = ?', [fighterId]);
+    if (results.length === 0) {
+      await connection.rollback();
+      return res.status(404).send('Not found');
+    }
+    let oldPhoto = results[0].photo;
+    let newPhoto = oldPhoto;
+    if (req.file) {
+      newPhoto = '/uploads/' + req.file.filename;
+      if (oldPhoto) {
+        const oldPath = path.join(__dirname, 'public', oldPhoto);
+        fs.unlink(oldPath, err => {
+          if (err) logger.error(`Failed to delete old photo: ${err.message}`);
+        });
+      }
+    }
+    await connection.query(
+      'UPDATE fighters SET name = ?, camp = ?, weight_class = ?, photo = ? WHERE id = ?',
+      [name, camp, weight_class, newPhoto, fighterId]
+    );
+    await connection.commit();
+    res.redirect('/fighters');
+  } catch (err) {
+    if (connection) await connection.rollback();
+    logger.error(`Error editing fighter ${fighterId}: ${err.message}`);
+    res.status(500).send('Update error');
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
-
-// --------- Fights CRUD ---------
-app.get('/fights', (req, res) => {
+app.get('/fights', async (req, res) => {
   const sql = `
     SELECT f.id, f.fight_date, f.description,
            a.name AS fighter1, b.name AS fighter2, w.name AS winner
@@ -104,165 +359,122 @@ app.get('/fights', (req, res) => {
     JOIN fighters b ON f.fighter2_id = b.id
     LEFT JOIN fighters w ON f.winner_id = w.id
     ORDER BY f.fight_date DESC`;
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).send('DB error');
+  try {
+    const [results] = await db.pool.query(sql);
     res.render('fights', { fights: results });
-  });
+  } catch (err) {
+    logger.error(`Error fetching fights: ${err.message}`);
+    res.status(500).send('DB error');
+  }
 });
 
-
-app.get('/fights/edit/:id', (req, res) => {
+app.get('/fights/edit/:id', async (req, res) => {
   const fightId = req.params.id;
-  db.query('SELECT * FROM fights WHERE id = ?', [fightId], (err, results) => {
-    if (err || results.length === 0) return res.status(404).send('Not found');
-    const fight = results[0];
-    db.query('SELECT * FROM fighters', (err, fighters) => {
-      if (err) return res.status(500).send('DB error');
-      res.render('editFight', { fight, fighters });
-    });
-  });
+  try {
+    const [fightResults] = await db.pool.query('SELECT * FROM fights WHERE id = ?', [fightId]);
+    if (fightResults.length === 0) return res.status(404).send('Not found');
+    const [fighters] = await db.pool.query('SELECT * FROM fighters');
+    res.render('editFight', { fight: fightResults[0], fighters });
+  } catch (err) {
+    logger.error(`Error fetching fight ${fightId}: ${err.message}`);
+    res.status(404).send('Not found');
+  }
 });
 
-app.post('/fights/edit/:id', (req, res) => {
+app.post('/fights/edit/:id', async (req, res) => {
   const { fighter1_id, fighter2_id, winner_id, fight_date, description } = req.body;
-  db.query(
-    'UPDATE fights SET fighter1_id=?, fighter2_id=?, winner_id=?, fight_date=?, description=? WHERE id=?',
-    [fighter1_id, fighter2_id, winner_id || null, fight_date, description, req.params.id],
-    err => {
-      if (err) return res.status(500).send('Update error');
-      res.redirect('/fights');
-    }
-  );
-});
-
-app.post('/fights/delete/:id', (req, res) => {
-  db.query('DELETE FROM fights WHERE id = ?', [req.params.id], err => {
-    if (err) return res.status(500).send('Delete error');
-    res.redirect('/fights');
-  });
-});
-
-// 🔍 นักมวยรายบุคคลพร้อมประวัติการชก
-app.get('/fighters/profile/:id', (req, res) => {
-    const fighterId = req.params.id;
-    const fighterQuery = 'SELECT * FROM fighters WHERE id = ?';
-    const winQuery = `
-      SELECT f.fight_date, f.description, a.name AS opponent
-      FROM fights f
-      JOIN fighters a ON a.id = IF(f.fighter1_id = ?, f.fighter2_id, f.fighter1_id)
-      WHERE f.winner_id = ?`;
-    const loseQuery = `
-      SELECT f.fight_date, f.description, a.name AS opponent
-      FROM fights f
-      JOIN fighters a ON a.id = IF(f.fighter1_id = ?, f.fighter2_id, f.fighter1_id)
-      WHERE f.winner_id != ? AND (f.fighter1_id = ? OR f.fighter2_id = ?)`;
-  
-    db.query(fighterQuery, [fighterId], (err, fighterResult) => {
-      if (err || fighterResult.length === 0) return res.status(404).send('Fighter not found');
-      const fighter = fighterResult[0];
-      db.query(winQuery, [fighterId, fighterId], (err, wins) => {
-        if (err) return res.status(500).send('Win query error');
-        db.query(loseQuery, [fighterId, fighterId, fighterId, fighterId], (err, losses) => {
-          if (err) return res.status(500).send('Lose query error');
-          res.render('fighterProfile', { fighter, wins, losses });
-        });
-      });
-    });
-  });
-
-  app.post('/fighters/add', upload.single('photo'), (req, res) => {
-    const { name, camp, weight_class } = req.body;
-    const photo = req.file ? '/uploads/' + req.file.filename : null;
-    db.query(
-      'INSERT INTO fighters (name, camp, weight_class, photo) VALUES (?, ?, ?, ?)',
-      [name, camp, weight_class, photo],
-      err => {
-        if (err) return res.status(500).send('Insert error');
-        res.redirect('/fighters');
-      }
+  try {
+    await db.pool.query(
+      'UPDATE fights SET fighter1_id=?, fighter2_id=?, winner_id=?, fight_date=?, description=? WHERE id=?',
+      [fighter1_id, fighter2_id, winner_id || null, fight_date, description, req.params.id]
     );
-  });
+    res.redirect('/fights');
+  } catch (err) {
+    logger.error(`Error updating fight ${req.params.id}: ${err.message}`);
+    res.status(500).send('Update error');
+  }
+});
 
-  app.post('/fighters/edit/:id', upload.single('photo'), (req, res) => {
-    const { name, camp, weight_class } = req.body;
-    const fighterId = req.params.id;
-  
-    // ดึงข้อมูลนักมวยเดิม เพื่อเช็ครูปเก่า
-    db.query('SELECT photo FROM fighters WHERE id = ?', [fighterId], (err, results) => {
-      if (err || results.length === 0) return res.status(404).send('Not found');
-      
-      let oldPhoto = results[0].photo;
-      let newPhoto = oldPhoto;
-  
-      if (req.file) {
-        newPhoto = '/uploads/' + req.file.filename;
-        // ลบไฟล์รูปเก่า ถ้ามี
-        if (oldPhoto) {
-          const oldPath = __dirname + '/public' + oldPhoto;
-          fs.unlink(oldPath, err => {
-            if (err) console.error('ลบรูปเก่าไม่สำเร็จ:', err);
-          });
-        }
-      }
-  
-      db.query(
-        'UPDATE fighters SET name = ?, camp = ?, weight_class = ?, photo = ? WHERE id = ?',
-        [name, camp, weight_class, newPhoto, fighterId],
-        err => {
-          if (err) return res.status(500).send('Update error');
-          res.redirect('/fighters');
-        }
-      );
-    });
-  });
+app.post('/fights/delete/:id', async (req, res) => {
+  try {
+    await db.pool.query('DELETE FROM fights WHERE id = ?', [req.params.id]);
+    res.redirect('/fights');
+  } catch (err) {
+    logger.error(`Error deleting fight ${req.params.id}: ${err.message}`);
+    res.status(500).send('Delete error');
+  }
+});
 
-//--------------------------------------คือสร้าง match -------------------------------------------
-app.get('/match/create', (req, res) => {
-    db.query('SELECT * FROM fighters', (err, fighters) => {
-      if (err) return res.status(500).send('DB error');
-      res.render('createMatch', { fighters });
-    });
-  });
+app.get('/fighters/profile/:id', async (req, res) => {
+  const fighterId = req.params.id;
+  const fighterQuery = 'SELECT * FROM fighters WHERE id = ?';
+  const winQuery = `
+    SELECT f.fight_date, f.description, a.name AS opponent
+    FROM fights f
+    JOIN fighters a ON a.id = IF(f.fighter1_id = ?, f.fighter2_id, f.fighter1_id)
+    WHERE f.winner_id = ?`;
+  const loseQuery = `
+    SELECT f.fight_date, f.description, a.name AS opponent
+    FROM fights f
+    JOIN fighters a ON a.id = IF(f.fighter1_id = ?, f.fighter2_id, f.fighter1_id)
+    WHERE f.winner_id != ? AND (f.fighter1_id = ? OR f.fighter2_id = ?)`;
+  try {
+    const [fighterResult] = await db.pool.query(fighterQuery, [fighterId]);
+    if (fighterResult.length === 0) return res.status(404).send('Fighter not found');
+    const [wins] = await db.pool.query(winQuery, [fighterId, fighterId]);
+    const [losses] = await db.pool.query(loseQuery, [fighterId, fighterId, fighterId, fighterId]);
+    res.render('fighterProfile', { fighter: fighterResult[0], wins, losses });
+  } catch (err) {
+    logger.error(`Error fetching profile for fighter ${fighterId}: ${err.message}`);
+    res.status(500).send('Profile error');
+  }
+});
 
-app.post('/match/create', (req, res) => {
+app.get('/match/create', async (req, res) => {
+  try {
+    const [fighters] = await db.pool.query('SELECT * FROM fighters');
+    res.render('createMatch', { fighters });
+  } catch (err) {
+    logger.error(`Error fetching fighters for match creation: ${err.message}`);
+    res.status(500).send('DB error');
+  }
+});
+
+app.post('/match/create', async (req, res) => {
   const { fighter1_id, fighter2_id, fight_date } = req.body;
-
-  if (!isCOM4Connected || !isCOM5Connected) {
+  if (!isCOM1Connected || !isCOM2Connected) {
     return res.status(400).send('Bluetooth devices not connected');
   }
-
-  const sql = `
-    INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date)
-  VALUES (?, ?, ?)`;
-
-  db.query(sql, [fighter1_id, fighter2_id, fight_date], (err) => {
-    if (err) return res.status(500).send('Create match failed');
+  try {
+    await db.pool.query(
+      'INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date) VALUES (?, ?, ?)',
+      [fighter1_id, fighter2_id, fight_date]
+    );
     res.redirect('/match');
-  });
+  } catch (err) {
+    logger.error(`Error creating match: ${err.message}`);
+    res.status(500).send('Create match failed');
+  }
 });
 
-
-app.get('/match', (req, res) => {
+app.get('/match', async (req, res) => {
   const sql = `
     SELECT s.id, s.fight_date, f1.name AS fighter1, f2.name AS fighter2
     FROM schedulefight s
     JOIN fighters f1 ON s.fighterid_1 = f1.id
     JOIN fighters f2 ON s.fighterid_2 = f2.id
     ORDER BY s.fight_date ASC`;
-
-  db.query(sql, (err, fights) => {
-    if (err) return res.status(500).send('DB error');
+  try {
+    const [fights] = await db.pool.query(sql);
     res.render('matchSchedule', { fights });
-  });
+  } catch (err) {
+    logger.error(`Error fetching matches: ${err.message}`);
+    res.status(500).send('DB error');
+  }
 });
 
-
-
-
-//---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
-app.get('/fights/data/:id', (req, res) => { 
+app.get('/fights/data/:id', async (req, res) => {
   const id = req.params.id;
-
   const sqlSchedulefight = `
     SELECT s.id, s.fighterid_1, s.fighterid_2,
            a.name AS fighter1_name, a.camp AS fighter1_camp, a.weight_class AS fighter1_weight, a.photo AS fighter1_photo,
@@ -270,14 +482,20 @@ app.get('/fights/data/:id', (req, res) => {
     FROM schedulefight s
     JOIN fighters a ON s.fighterid_1 = a.id
     JOIN fighters b ON s.fighterid_2 = b.id
-    WHERE s.id = ?
-  `;
-
+    WHERE s.id = ?`;
   const sqlFighters = `SELECT id, name FROM fighters`;
-
-  db.query(sqlSchedulefight, [id], (err, results) => {
-    if (err || results.length === 0) return res.status(404).send('ไม่พบข้อมูล');
-
+  const sqlDatafight = `
+    SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+    FROM datafight
+    WHERE schedulefight_id = ?
+    ORDER BY round ASC, id ASC`;
+  const sqlMaxRound = `
+    SELECT MAX(round) AS maxRound 
+    FROM datafight 
+    WHERE schedulefight_id = ?`;
+  try {
+    const [results] = await db.pool.query(sqlSchedulefight, [id]);
+    if (results.length === 0) return res.status(404).send('ไม่พบข้อมูล');
     const row = results[0];
     const fighter1 = {
       name: row.fighter1_name,
@@ -291,646 +509,237 @@ app.get('/fights/data/:id', (req, res) => {
       weight_class: row.fighter2_weight,
       photo: row.fighter2_photo
     };
-
-    const sqlDatafight = `
-      SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
-  FROM datafight
-  WHERE schedulefight_id = ?
-  ORDER BY round ASC, id ASC
-    `;
-
-    db.query(sqlFighters, (err2, fightersList) => {
-      if (err2) return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลนักชก');
-
-      db.query(sqlDatafight, [id], (err3, datafightResults) => {
-        if (err3) return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูล fight data');
-
-        // สร้าง Map id->name
-        const fighterIdNameMap = {};
-        fightersList.forEach(f => {
-          fighterIdNameMap[f.id] = f.name;
-        });
-
-        // แยกข้อมูลตาม round
-        const groupedByRound = {};
-        datafightResults.forEach(item => {
-          const round = item.round || 1;
-          if (!groupedByRound[round]) groupedByRound[round] = [];
-          groupedByRound[round].push(item);
-        });
-
-        // --- ดึง maxRound จาก DB ---
-const sqlMaxRound = `
-  SELECT MAX(round) AS maxRound 
-  FROM datafight 
-  WHERE schedulefight_id = ?
-`;
-
-db.query(sqlMaxRound, [id], (err4, roundResult) => {
-  if (err4) return res.status(500).send('เกิดข้อผิดพลาดในการดึง max round');
-
-  const maxRound = roundResult[0].maxRound || 0;
-
-  res.render('datafight', {
-    fighter1,
-    fighter2,
-    schedulefightId: row.id,
-    fightDataGrouped: groupedByRound,
-    fighterIdNameMap,
-    roundNumberStart: maxRound + 1 , // ✅ ส่งยกถัดไป
-    
-  });
-});
-
-      });
+    const [fightersList] = await db.pool.query(sqlFighters);
+    const [datafightResults] = await db.pool.query(sqlDatafight, [id]);
+    const [roundResult] = await db.pool.query(sqlMaxRound, [id]);
+    const fighterIdNameMap = {};
+    fightersList.forEach(f => fighterIdNameMap[f.id] = f.name);
+    const groupedByRound = {};
+    datafightResults.forEach(item => {
+      const round = item.round || 1;
+      if (!groupedByRound[round]) groupedByRound[round] = [];
+      groupedByRound[round].push(item);
     });
-  });
+    const maxRound = roundResult[0].maxRound || 0;
+    res.render('datafight', {
+      fighter1,
+      fighter2,
+      schedulefightId: row.id,
+      fightDataGrouped: groupedByRound,
+      fighterIdNameMap,
+      roundNumberStart: maxRound + 1
+    });
+  } catch (err) {
+    logger.error(`Error fetching fight data ${id}: ${err.message}`);
+    res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูล');
+  }
 });
 
-app.post('/match/summary', (req, res) => {
+app.post('/match/summary', async (req, res) => {
   const { schedulefightId } = req.body;
-
-  if (!schedulefightId) {
-    return res.json({ success: false, message: 'ไม่พบข้อมูลการแข่งขัน' });
+  if (!Number.isInteger(Number(schedulefightId))) {
+    return res.json({ success: false, message: 'schedulefightId ต้องเป็นตัวเลข' });
   }
-
-  // ดึงคะแนนแยกตามยก และ fighterid
   const sql = `
     SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
-  FROM datafight
-  WHERE schedulefight_id = ?
-  ORDER BY round ASC, id ASC
-  `;
-
-  db.query(sql, [schedulefightId], (err, results) => {
-    if (err) return res.json({ success: false, message: 'ดึงข้อมูลล้มเหลว' });
+    FROM datafight
+    WHERE schedulefight_id = ?
+    ORDER BY round ASC, id ASC`;
+  try {
+    const [results] = await db.pool.query(sql, [schedulefightId]);
     if (results.length === 0) return res.json({ success: false, message: 'ไม่มีข้อมูลการแข่งขัน' });
-
-    // ดึง fighter id ทั้งหมดในแมตช์ เพื่อใช้ดึงชื่อ
     const fighterIds = [...new Set(results.map(r => r.fighterid))];
-
-    const sqlFighters = `SELECT id, name FROM fighters WHERE id IN (?)`;
-
-    db.query(sqlFighters, [fighterIds], (err2, fighters) => {
-      if (err2) return res.json({ success: false, message: 'ดึงข้อมูลนักชกล้มเหลว' });
-
-      const fighterMap = {};
-      fighters.forEach(f => fighterMap[f.id] = f.name);
-
-      // รวมผลคะแนนแต่ละยกในรูปแบบ
-      // { round: 1, scores: { fighterId1: hits, fighterId2: hits }, winnerId }
-      const summaryByRound = [];
-
-      // แยกข้อมูลตามยก
-      const rounds = [...new Set(results.map(r => r.round))];
-
-      rounds.forEach(round => {
-        const roundData = results.filter(r => r.round === round);
-
-        const scores = {};
-        roundData.forEach(r => {
-          scores[r.fighterid] = r.hits;
-        });
-
-        // สมมติ fighter มี 2 คน
-        const [fighter1Id, fighter2Id] = fighterIds;
-
-        const score1 = scores[fighter1Id] || 0;
-        const score2 = scores[fighter2Id] || 0;
-
-        let winnerId = null;
-        if (score1 > score2) winnerId = fighter1Id;
-        else if (score2 > score1) winnerId = fighter2Id;
-        else winnerId = null; // เสมอ
-
-        summaryByRound.push({
-          round,
-          scores: {
-            [fighter1Id]: score1,
-            [fighter2Id]: score2
-          },
-          winnerId
-        });
-      });
-
-      res.json({
-        success: true,
-        summaryByRound,
-        fighters: {
-          [fighterIds[0]]: fighterMap[fighterIds[0]],
-          [fighterIds[1]]: fighterMap[fighterIds[1]]
-        }
-      });
+    const [fighters] = await db.pool.query('SELECT id, name FROM fighters WHERE id IN (?)', [fighterIds]);
+    const fighterMap = {};
+    fighters.forEach(f => fighterMap[f.id] = f.name);
+    const summaryByRound = [];
+    const rounds = [...new Set(results.map(r => r.round))];
+    rounds.forEach(round => {
+      const roundData = results.filter(r => r.round === round);
+      const scores = {};
+      roundData.forEach(r => scores[r.fighterid] = r.hits || 0);
+      const [fighter1Id, fighter2Id] = fighterIds;
+      const score1 = scores[fighter1Id] || 0;
+      const score2 = scores[fighter2Id] || 0;
+      let winnerId = score1 > score2 ? fighter1Id : score2 > score1 ? fighter2Id : null;
+      summaryByRound.push({ round, scores: { [fighter1Id]: score1, [fighter2Id]: score2 }, winnerId });
     });
-  });
+    res.json({
+      success: true,
+      summaryByRound,
+      fighters: { [fighterIds[0]]: fighterMap[fighterIds[0]], [fighterIds[1]]: fighterMap[fighterIds[1]] }
+    });
+  } catch (err) {
+    logger.error(`Error fetching match summary ${schedulefightId}: ${err.message}`);
+    res.json({ success: false, message: 'ดึงข้อมูลล้มเหลว' });
+  }
 });
 
-//----------------หน้าเชื่อมต่อCOM---------------
-app.get('/connectCOM', (req, res) => {
-  res.render('connectCOM');
-});
+app.get('/connectCOM', (req, res) => res.render('connectCOM'));
 
-
-
-
-
-
-
-
-//---------------------------------------------------------สร้างตารางแข่งใหม่------------------------------------------------------------
-// setupCOM6();
-// ======== เชื่อมต่อ COM4/COM5/COM6 อัตโนมัติ =========
-let COM4_PORT = 'COM4';
-let COM5_PORT = 'COM5';
-const COM6_PORT = 'COM6';
-
-let bufferValues = [];
-let bufferCOM4 = [], waitingCOM4 = false, lastTimeCOM4 = Date.now();
-let bufferCOM5 = [], waitingCOM5 = false, lastTimeCOM5 = Date.now();
-let waitingBelowThreshold = false;
-let lastReceiveTime = Date.now();
-
-function setupCOM6() {
-  portCOM6 = new SerialPort({ path: COM6_PORT, baudRate: 9600 }, (err) => {
-    if (err) {
-      console.error('❌ ไม่สามารถเชื่อมต่อ COM6:', err.message);
-      return;
-    }
-    isCOM6Connected = true;
-    console.log('✅ เชื่อมต่อ COM6 สำเร็จ');
-    io.emit('com6Status', true);
-
-    const parser = portCOM6.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
-    parser.on('data', (rawData) => {
-      const data = parseInt(rawData);
-      if (isNaN(data)) return;
-
-      lastReceiveTime = Date.now();
-
-      if (data >= 1000) {
-        bufferValues.push(data);
-        waitingBelowThreshold = true;
-      } else if (waitingBelowThreshold && bufferValues.length > 0) {
-        const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-        console.log('✅ COM6 ค่าเฉลี่ย:', avg);
-        io.emit('com6Data', avg);
-        bufferValues = [];
-        waitingBelowThreshold = false;
-      }
-    });
-
-    setInterval(() => {
-      if (bufferValues.length > 0 && Date.now() - lastReceiveTime > 2000) {
-        const avg = Math.round(bufferValues.reduce((a, b) => a + b, 0) / bufferValues.length);
-        console.log('⏱️ COM6 Timeout ส่งค่าเฉลี่ย:', avg);
-        io.emit('com6Data', avg);
-        bufferValues = [];
-        waitingBelowThreshold = false;
-      }
-    }, 500);
-  });
-}
-
-
-function setupCOM4(port) {
-  return new Promise((resolve, reject) => {
-    portCOM4 = new SerialPort({ path: port, baudRate: 9600 }, (err) => {
-      if (err) {
-        console.error('❌ COM4 connect failed:', err.message);
-        isCOM4Connected = false;
-        io.emit('comStatusUpdate', { port: 'com4', status: false });
-        reject(err);
-        return;
-      }
-
-      isCOM4Connected = true;
-      console.log('✅ COM4 connected automatically');
-      io.emit('comStatusUpdate', { port: 'com4', status: true });
-      resolve();
-
-      const parser = portCOM4.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
-      let buffers = {
-        chest: [],
-        stomach: [],
-        left: [],
-        right: []
-      };
-      let waiting = false;
-      let lastTime = Date.now();
-
-      parser.on('data', (rawData) => {
-        console.log('📥 ข้อมูลดิบจาก COM4:', rawData);
-        const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
-        if (parts.length !== 4 || parts.some(isNaN)) {
-          console.error('🚫 ข้อมูลดิบไม่ถูกต้อง:', rawData);
-          return;
-        }
-
-        lastTime = Date.now();
-
-        if (parts.some(val => val >= 1000)) {
-          buffers.chest.push(parts[0]);
-          buffers.stomach.push(parts[1]);
-          buffers.left.push(parts[2]);
-          buffers.right.push(parts[3]);
-          waiting = true;
-        } else if (waiting && buffers.chest.length > 0) {
-          const avgChest = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
-          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
-          const avgLeft = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
-          const avgRight = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
-
-          const result = {};
-          if (avgChest >= 1000) result.chest = avgChest;
-          if (avgStomach >= 1000) result.stomach = avgStomach;
-          if (avgLeft >= 1000) result.left = avgLeft;
-          if (avgRight >= 1000) result.right = avgRight;
-
-          if (Object.keys(result).length > 0) {
-            console.log('✅ COM4 avg (filtered):', result);
-            io.emit('com4Data', result);
-          } else {
-            console.log('⚠️ COM4 avg: ค่าเฉลี่ยทั้งหมด < 1000, ไม่ส่งข้อมูล');
-          }
-
-          buffers = { chest: [], stomach: [], left: [], right: [] };
-          waiting = false;
-        }
-      });
-
-      setInterval(() => {
-        const now = Date.now();
-        if (waiting && now - lastTime > 2000 && buffers.chest.length > 0) {
-          const avgChest = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
-          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
-          const avgLeft = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
-          const avgRight = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
-
-          const result = {};
-          if (avgChest >= 1000) result.chest = avgChest;
-          if (avgStomach >= 1000) result.stomach = avgStomach;
-          if (avgLeft >= 1000) result.left = avgLeft;
-          if (avgRight >= 1000) result.right = avgRight;
-
-          if (Object.keys(result).length > 0) {
-            console.log('⏱️ Timeout COM4 avg (filtered):', result);
-            io.emit('com4Data', result);
-          } else {
-            console.log('⚠️ Timeout COM4 avg: ค่าเฉลี่ยทั้งหมด < 1000, ไม่ส่งข้อมูล');
-          }
-
-          buffers = { chest: [], stomach: [], left: [], right: [] };
-          waiting = false;
-        }
-      }, 500);
-    });
-  });
-}
-
-
-let intervalCOM5 = null;
-
-function setupCOM5(port) {
-  return new Promise((resolve, reject) => {
-    portCOM5 = new SerialPort({ path: port, baudRate: 9600 }, (err) => {
-      if (err) {
-        console.error('❌ COM5 connect failed:', err.message);
-        isCOM5Connected = false;
-        io.emit('comStatusUpdate', { port: 'com5', status: false });
-        reject(err);
-        return;
-      }
-
-      isCOM5Connected = true;
-      console.log('✅ COM5 connected automatically');
-      io.emit('comStatusUpdate', { port: 'com5', status: true });
-
-      const parser = portCOM5.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
-      // buffer สำหรับตำแหน่ง อก, ท้อง, ซ้าย, ขวา
-      let buffers = {
-        chest: [],
-        stomach: [],
-        left: [],
-        right: []
-      };
-      let waiting = false;
-      let lastTime = Date.now();
-
-      parser.on('data', (rawData) => {
-        console.log('📥 ข้อมูลดิบจาก COM5:', rawData);
-
-        // split ค่า
-        const parts = rawData.split(',').map(v => parseInt(v.trim(), 10));
-        if (parts.length !== 4 || parts.some(isNaN)) return;
-
-        lastTime = Date.now();
-
-        // ถ้ามีค่ามากกว่า 1000 เก็บลง buffer
-        if (parts.some(val => val >= 1000)) {
-          buffers.chest.push(parts[0]);
-          buffers.stomach.push(parts[1]);
-          buffers.left.push(parts[2]);
-          buffers.right.push(parts[3]);
-          waiting = true;
-        } else if (waiting && buffers.chest.length > 0) {
-          // คำนวณค่าเฉลี่ยของแต่ละตำแหน่ง
-          const avgChest   = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
-          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
-          const avgLeft    = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
-          const avgRight   = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
-
-          const result = {
-            chest: avgChest,
-            stomach: avgStomach,
-            left: avgLeft,
-            right: avgRight
-          };
-
-          console.log('✅ COM5 avg:', result);
-          io.emit('com5Data', result);
-
-          // reset buffer
-          buffers = { chest: [], stomach: [], left: [], right: [] };
-          waiting = false;
-        }
-      });
-
-      // timeout กรณีไม่มีข้อมูลใหม่
-      setInterval(() => {
-        const now = Date.now();
-        if (waiting && now - lastTime > 2000 && buffers.chest.length > 0) {
-          const avgChest   = Math.round(buffers.chest.reduce((a, b) => a + b, 0) / buffers.chest.length);
-          const avgStomach = Math.round(buffers.stomach.reduce((a, b) => a + b, 0) / buffers.stomach.length);
-          const avgLeft    = Math.round(buffers.left.reduce((a, b) => a + b, 0) / buffers.left.length);
-          const avgRight   = Math.round(buffers.right.reduce((a, b) => a + b, 0) / buffers.right.length);
-
-          const result = {
-            chest: avgChest,
-            stomach: avgStomach,
-            left: avgLeft,
-            right: avgRight
-          };
-
-          console.log('⏱️ Timeout COM5 avg:', result);
-          io.emit('com5Data', result);
-
-          buffers = { chest: [], stomach: [], left: [], right: [] };
-          waiting = false;
-        }
-      }, 500);
-
-      resolve();
-    });
-
-    // handle ปิดพอร์ตหรือ error
-    portCOM5.on('close', () => {
-      console.log('COM5 port closed');
-      isCOM5Connected = false;
-      io.emit('comStatusUpdate', { port: 'com5', status: false });
-    });
-
-    portCOM5.on('error', (err) => {
-      console.error('COM5 port error:', err.message);
-      isCOM5Connected = false;
-      io.emit('comStatusUpdate', { port: 'com5', status: false });
-    });
-  });
-}
-
-
-
-function disconnectCOM4() {
-  if (portCOM4 && portCOM4.isOpen) {
-    portCOM4.close((err) => {
-      if (err) console.error('Error closing COM4:', err);
-      else {
-        isCOM4Connected = false;
-        console.log('COM4 disconnected');
-        io.emit('com4Status', false);
-      }
-    });
-  }
-}
-
-function disconnectCOM5() {
-  if (portCOM5 && portCOM5.isOpen) {
-    portCOM5.close((err) => {
-      if (err) console.error('Error closing COM5:', err);
-      else {
-        isCOM5Connected = false;
-        console.log('COM5 disconnected');
-        io.emit('com5Status', false);
-      }
-    });
-  }
-}
-
-// รับวิดีโอที่ client อัปโหลด
 app.post('/upload-video', upload.single('video'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No video uploaded' });
-  }
-
+  if (!req.file) return res.status(400).json({ success: false, message: 'No video uploaded' });
   const videoPath = '/uploads/' + req.file.filename;
   res.json({ success: true, url: videoPath });
 });
 
-
-// เรียกตอนเริ่มเซิร์ฟเวอร์
-// setupCOM4();
-// setupCOM5();
-// setupCOM6();
-//-------------------------------------Record-----------------------------------------------------
-app.post('/datafight/save', (req, res) => {
+app.post('/datafight/save', async (req, res) => {
   const { schedulefight_id, clip_url, clip_url2, data, time, round } = req.body;
-
   if (!data || data.length === 0) {
-    console.error('⚠️ ไม่มีข้อมูลใน data:', data);
+    logger.error('No data provided for datafight save');
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
   }
-
-  console.log('📥 ข้อมูลที่ได้รับใน /datafight/save:', { schedulefight_id, clip_url, clip_url2, time, round, data });
-
-  const sql = 'SELECT fighterid_1, fighterid_2 FROM schedulefight WHERE id = ?';
-  db.query(sql, [schedulefight_id], (err, results) => {
-    if (err || results.length === 0) {
-      console.error('🚫 ดึงข้อมูลนักชกล้มเหลว:', err || 'ไม่พบ schedulefight');
-      return res.status(500).json({ success: false, message: 'ดึงข้อมูลนักชกล้มเหลว' });
+  let connection;
+  try {
+    connection = await db.pool.getConnection();
+    await connection.beginTransaction();
+    const [results] = await connection.query('SELECT fighterid_1, fighterid_2 FROM schedulefight WHERE id = ?', [schedulefight_id]);
+    if (results.length === 0) {
+      throw new Error('ไม่พบ schedulefight');
     }
-
     const fighter1 = results[0].fighterid_1;
     const fighter2 = results[0].fighterid_2;
-    
     const insertData = [];
-
     data.forEach(d => {
-      let fighterid = null;
-      if (d.label.includes('นักชก1')) fighterid = fighter1;
-      else if (d.label.includes('นักชก2')) fighterid = fighter2;
-      if (!fighterid) {
-        console.warn(`⚠️ ไม่พบ fighterid สำหรับ label: ${d.label}`);
-        return;
-      }
-
+      let fighterid = d.label.includes('นักชก1') ? fighter1 : d.label.includes('นักชก2') ? fighter2 : null;
+      if (!fighterid) return;
       let details = d.value;
       let timeHitSeconds = 0;
-
       if (details.includes('|')) {
         const parts = details.split('|');
         details = parts[0];
         timeHitSeconds = parseInt(parts[1], 10);
       }
-
-      function secondsToTime(sec) {
-        const h = Math.floor(sec / 3600);
-        const m = Math.floor((sec % 3600) / 60);
-        const s = sec % 60;
-        return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
-      }
-
       const timehit = secondsToTime(timeHitSeconds);
-
-      // ใช้ d.fighterdetail หากมี มิฉะนั้นสร้างจาก d.label + details + position
       const fighterDetail = d.fighterdetail || `${d.label} ${details}${d.position ? ' ' + d.position : ''}`;
-
-      insertData.push([
-        time, // fightDuration จาก stopRecording
-        fighterid,
-        fighterDetail, // ใช้ fighterdetail จากไคลเอนต์ เช่น "นักชก2 2659 chest"
-        clip_url,
-        schedulefight_id,
-        timehit,
-        round,
-        clip_url2
-      ]);
+      insertData.push([time, fighterid, fighterDetail, clip_url, schedulefight_id, timehit, round, clip_url2]);
     });
-
     if (insertData.length === 0) {
-      console.error('⚠️ ไม่มีข้อมูลให้บันทึก:', insertData);
-      return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลให้บันทึก' });
+      throw new Error('ไม่มีข้อมูลให้บันทึก');
     }
-
-    const insertSQL = `
-      INSERT INTO datafight 
-      (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2)
-      VALUES ?
-    `;
-
-    console.log('💾 ข้อมูลที่จะบันทึก:', insertData);
-
-    db.query(insertSQL, [insertData], (err) => {
-      if (err) {
-        console.error('🚫 บันทึกข้อมูลล้มเหลว:', err);
-        return res.status(500).json({ success: false, message: 'บันทึกข้อมูลล้มเหลว' });
-      }
-
-      console.log('✅ บันทึกข้อมูลสำเร็จ:', { affectedRows: insertData.length });
-      return res.json({ success: true });
-    });
-  });
+    await connection.query(
+      'INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2) VALUES ?',
+      [insertData]
+    );
+    await connection.commit();
+    console.log('✅ บันทึกข้อมูลสำเร็จ:', { affectedRows: insertData.length });
+    res.json({ success: true });
+  } catch (err) {
+    if (connection) await connection.rollback();
+    logger.error(`Error saving datafight for schedulefight ${schedulefight_id}: ${err.message}`);
+    res.status(500).json({ success: false, message: 'บันทึกข้อมูลล้มเหลว' });
+  } finally {
+    if (connection) connection.release();
+  }
 });
 
-
-//-------------------------------------Record-----------------------------------------------------
-//-----------------------------------repaly--------------------------------------------------------
-app.get('/replay', (req, res) => {
-  res.render('replay');
-});
-//-----------------------------------repaly--------------------------------------------------------
-
-
-//------------------------------------ลบ match-------------------------------------
-app.post('/match/delete/:id', (req, res) => {
-  const id = req.params.id;
-
-  // ลบข้อมูลใน datafight ที่เกี่ยวข้องกับ match ก่อน
-  const deleteDatafightSQL = 'DELETE FROM datafight WHERE schedulefight_id = ?';
-
-  db.query(deleteDatafightSQL, [id], (err) => {
-    if (err) {
-      console.error('ลบข้อมูลใน datafight ล้มเหลว:', err);
-      return res.status(500).send('เกิดข้อผิดพลาดในการลบข้อมูล match');
-    }
-
-    // ลบ match จากตาราง schedulefight
-    const deleteScheduleSQL = 'DELETE FROM schedulefight WHERE id = ?';
-
-    db.query(deleteScheduleSQL, [id], (err2) => {
-      if (err2) {
-        console.error('ลบ match ล้มเหลว:', err2);
-        return res.status(500).send('เกิดข้อผิดพลาดในการลบ match');
-      }
-
-      // ลบสำเร็จ
-      res.redirect('/match');
-    });
-  });
-});
-
-//------------------------------------ลบ match-------------------------------------
-
-//------------------------------------ส่งสถานะ COM--------------------------------
-let comStatus = {
-  com4: false,
-  com5: false,
+const secondsToTime = (sec) => {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
 };
 
+app.get('/replay', (req, res) => res.render('replay'));
+
+app.post('/match/delete/:id', async (req, res) => {
+  const id = req.params.id;
+  let connection;
+  try {
+    connection = await db.pool.getConnection();
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM datafight WHERE schedulefight_id = ?', [id]);
+    await connection.query('DELETE FROM schedulefight WHERE id = ?', [id]);
+    await connection.commit();
+    res.redirect('/match');
+  } catch (err) {
+    if (connection) await connection.rollback();
+    logger.error(`Error deleting match ${id}: ${err.message}`);
+    res.status(500).send('เกิดข้อผิดพลาดในการลบ match');
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// Socket.IO
 io.on('connection', (socket) => {
-  console.log('🔌 Client connected');
-
-  // ส่งสถานะล่าสุดเมื่อหน้าเชื่อมต่อ
-  socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
-
-  socket.on('connectCOMPorts', async ({ com4, com5 }) => {
+  updateConnectionStatus();
+  socket.on('requestConnectionStatus', () => {
+    updateConnectionStatus();
+  });
+  socket.on('connectCOMPorts', async ({ fighterPort1, fighterPort2 }) => {
+    console.log(`🔌 รับคำสั่งเชื่อมต่อ: ${fighterPort1}, ${fighterPort2}`);
     try {
-      if (com4) await setupCOM4(com4);
-      if (com5) await setupCOM5(com5);
-
-      // Broadcast ให้ทุกหน้า (ทุก socket) ทราบสถานะล่าสุด
-      io.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
+      const ports = await SerialPort.list();
+      const portNames = ports.map(p => p.path);
+      if (!portNames.includes(fighterPort1)) throw new Error(`พอร์ต ${fighterPort1} ไม่มี`);
+      if (!portNames.includes(fighterPort2)) throw new Error(`พอร์ต ${fighterPort2} ไม่มี`);
+      if (fighterPort1 === fighterPort2) throw new Error('พอร์ตต้องไม่ซ้ำ');
+      disconnectFighter1();
+      disconnectFighter2();
+      currentFighterPort1 = fighterPort1;
+      currentFighterPort2 = fighterPort2;
+      portCOM1 = await setupFighter1(fighterPort1);
+      portCOM2 = await setupFighter2(fighterPort2);
+      updateConnectionStatus();
     } catch (err) {
-      console.error('❌ Error connecting COM ports:', err.message);
-      socket.emit('connectionError', err.message);
+      console.error(`❌ ข้อผิดพลาดการเชื่อมต่อ: ${err.message}`);
+      logger.error(`ข้อผิดพลาดการเชื่อมต่อ: ${err.message}`);
+      socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, err.message);
+      updateConnectionStatus();
     }
   });
-
-  // (เพิ่มเติม) รองรับการตัดการเชื่อมต่อ COM
+  socket.on('swapCOMPorts', async () => {
+    console.log('🔄 สลับพอร์ต');
+    try {
+      const tempPort1 = currentFighterPort1;
+      const tempPort2 = currentFighterPort2;
+      currentFighterPort1 = tempPort2;
+      currentFighterPort2 = tempPort1;
+      disconnectFighter1();
+      disconnectFighter2();
+      if (currentFighterPort1) portCOM1 = await setupFighter1(currentFighterPort1);
+      if (currentFighterPort2) portCOM2 = await setupFighter2(currentFighterPort2);
+      updateConnectionStatus();
+    } catch (err) {
+      console.error(`❌ ข้อผิดพลาดการสลับพอร์ต: ${err.message}`);
+      logger.error(`ข้อผิดพลาดการสลับพอร์ต: ${err.message}`);
+      socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, err.message);
+      updateConnectionStatus();
+    }
+  });
   socket.on('disconnectCOMPorts', () => {
-    disconnectCOM4();
-    disconnectCOM5();
-    isCOM4Connected = false;
-    isCOM5Connected = false;
-    io.emit('connectionStatus', { com4: false, com5: false });
+    console.log('🔌 ตัดการเชื่อมต่อทั้งหมด');
+    disconnectFighter1();
+    disconnectFighter2();
+    isCOM1Connected = false;
+    isCOM2Connected = false;
+    updateConnectionStatus();
   });
 });
 
+// Cleanup on server shutdown
+let isCleaningUp = false;
+const cleanup = () => {
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+  console.log('🛑 ปิด server...');
+  if (portCOM1 && portCOM1.isOpen) disconnectFighter1();
+  if (portCOM2 && portCOM2.isOpen) disconnectFighter2();
+  db.close().then(() => {
+    console.log('📚 ปิดการเชื่อมต่อฐานข้อมูล');
+    server.close(() => {
+      console.log('🚪 Server ปิดแล้ว');
+      process.exit(0);
+    });
+  }).catch(err => {
+    console.error('❌ ข้อผิดพลาดตอนปิด:', err.message);
+    logger.error(`ข้อผิดพลาดตอนปิด: ${err.message}`);
+    process.exit(1);
+  });
+};
 
-//------------------------------------ส่งสถานะ COM--------------------------------
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
 
-//app.listen(3000, () => console.log('✅ Server running at http://localhost:3000'));
-server.listen(3000, () => console.log('Server running on http://localhost:3000'));
-
-// io.on('connection', (socket) => {
-//   console.log('Client connected');
-//   socket.emit('connectionStatus', { com4: isCOM4Connected, com5: isCOM5Connected });
-
-//    socket.on('connectCOMPorts', ({ com4, com5, com6 }) => {
-//     console.log(`🔌 ผู้ใช้ส่งพอร์ต: COM4=${com4}, COM5=${com5}, COM6=${com6}`);
-
-//     if (com4) {
-//       COM4_PORT = com4;
-//       setupCOM4();
-//     }
-//     if (com5) {
-//       COM5_PORT = com5;
-//       setupCOM5();
-//     }
-//   });
-//   socket.on('disconnectCOMPorts', () => {
-//     disconnectCOM4();
-//     disconnectCOM5();
-//   });
-// });
+server.listen(3000, () => console.log('🚀 Server รันที่ http://localhost:3000'));
