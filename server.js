@@ -80,7 +80,7 @@ const processSensorData = (rawData, portName, state, emitEvent) => {
     { name: 'stomach', value: stomachVal, threshold: 1500 },
     { name: 'left', value: leftVal, threshold: 1500 },
     { name: 'right', value: rightVal, threshold: 1500 },
-    { name: 'head', value: headVal, threshold: 5 } // MPU6050 in grams
+    { name: 'head', value: headVal, threshold: 100 } // Changed threshold from 5 to 100
   ];
   sensors.forEach(({ name, value, threshold }) => {
     if (value >= threshold) {
@@ -252,7 +252,7 @@ setInterval(() => {
     sensors.forEach((name) => {
       if (state.waiting[name] && now - state.lastTime[name] > SENSOR_TIMEOUT && state.buffers[name].length > 0) {
         const maxValue = Math.max(...state.buffers[name]);
-        const threshold = name === 'head' ? 5 : 1500;
+        const threshold = name === 'head' ? 100 : 1500; // Changed threshold from 5 to 100
         if (maxValue >= threshold) result[name] = maxValue;
         state.buffers[name] = [];
         state.waiting[name] = false;
