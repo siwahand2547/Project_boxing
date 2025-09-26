@@ -188,7 +188,7 @@
       color: #007bff;
     }
     #summaryModal .modal-content {
-      max-width: 500px;
+      max-width: 800px; /* ขยายขนาดตามคำถามก่อนหน้า */
       width: 90%;
     }
     #summaryContent {
@@ -199,6 +199,23 @@
       border-radius: 6px;
       background: #222;
     }
+    #summaryContent table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+    #summaryContent th, #summaryContent td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid #444;
+    }
+    #summaryContent th {
+      background: #333;
+      font-weight: bold;
+    }
+    #summaryContent tbody tr:nth-child(even) {
+      background: #2a2a2a;
+    }
     .connected { color: #00ff00; font-weight: bold; }
     .disconnected { color: #ff4444; font-weight: bold; }
     @media (max-width: 768px) {
@@ -208,7 +225,11 @@
       #clipModal video {
         max-width: 90%;
       }
+      #summaryModal .modal-content {
+        max-width: 95%;
+      }
     }
+
     #cameraTestModal {
       display: none;
       position: fixed;
@@ -238,7 +259,7 @@
       background: #000;
       box-shadow: 0 0 15px rgba(0,0,0,0.7);
       margin: 10px;
-    }
+      }
   </style>
 </head>
 <body>
@@ -429,22 +450,22 @@
     });
 
     socket.on('connectionStatus', (status) => {
-      console.log('Connection status:', status);
-      document.getElementById('fighter1-port').textContent = status.port1 || 'ไม่ระบุ';
-      document.getElementById('fighter2-port').textContent = status.port2 || 'ไม่ระบุ';
+      console.log('📡 Received connection status:', status); // เพิ่ม log เพื่อตรวจสอบข้อมูลที่ได้รับ
+      document.getElementById('fighter1-port').textContent = status.fighterPort1 || 'ไม่ระบุ';
+      document.getElementById('fighter2-port').textContent = status.fighterPort2 || 'ไม่ระบุ';
 
       const status1 = document.getElementById('fighter1-status');
-      status1.textContent = status.connected1 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
-      status1.classList.toggle('connected', status.connected1);
-      status1.classList.toggle('disconnected', !status.connected1);
+      status1.textContent = status.fighterPort1 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+      status1.classList.toggle('connected', !!status.fighterPort1);
+      status1.classList.toggle('disconnected', !status.fighterPort1);
 
       const status2 = document.getElementById('fighter2-status');
-      status2.textContent = status.connected2 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
-      status2.classList.toggle('connected', status.connected2);
-      status2.classList.toggle('disconnected', !status.connected2);
+      status2.textContent = status.fighterPort2 ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+      status2.classList.toggle('connected', !!status.fighterPort2);
+      status2.classList.toggle('disconnected', !status.fighterPort2);
 
-      document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time นักชก 1 (${status.port1 || 'ไม่ระบุ'})`;
-      document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time นักชก 2 (${status.port2 || 'ไม่ระบุ'})`;
+      document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time นักชก 1 (${status.fighterPort1 || 'ไม่ระบุ'})`;
+      document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time นักชก 2 (${status.fighterPort2 || 'ไม่ระบุ'})`;
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -465,6 +486,11 @@
       });
     });
 
+    socket.on('connectionError', (message) => {
+      console.error('🚫 Connection error:', message);
+      alert(message);
+    });
+
     function swapPorts() {
       socket.emit('swapCOMPorts');
       alert('กำลังสลับพอร์ตนักชก...');
@@ -483,7 +509,7 @@
     function addTableRow(tableId, position, value, timeSec) {
       const tbody = document.querySelector(`#${tableId} tbody`);
       const tr = document.createElement('tr');
-      const elapsedStr = startTime
+      const elapsedStr = startTime 
         ? `${Math.floor(timeSec / 60)}:${(timeSec % 60).toString().padStart(2, '0')}`
         : '0:00';
       tr.innerHTML = `
@@ -636,6 +662,7 @@
         alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
         document.getElementById('stopBtn').disabled = true;
 
+        // หยุด stream กล้อง
         const cam1 = document.getElementById('cam1');
         const cam2 = document.getElementById('cam2');
         if (cam1.srcObject) {
@@ -754,12 +781,14 @@
           if (url2) video2.currentTime = seconds;
           video1.play().catch(err => console.error('Error playing video1:', err));
           video2.play().catch(err => console.error('Error playing video2:', err));
+          // ตั้งสถานะ active
           timestampContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
           button.classList.add('active');
         };
         timestampContainer.appendChild(button);
       });
 
+      // ตั้งค่าเวลาเริ่มต้น
       let seconds = hhmmssToSeconds(timehit) - 2;
       seconds = Math.max(0, seconds);
       function waitForVideoReady(video) {
@@ -776,6 +805,7 @@
         .then(() => {
           if (url1) video1.play();
           if (url2) video2.play();
+          // ตั้งปุ่ม active สำหรับ timehit เริ่มต้น
           const initialButton = Array.from(timestampContainer.querySelectorAll('button'))
             .find(btn => btn.textContent.includes(timehit));
           if (initialButton) initialButton.classList.add('active');
@@ -837,6 +867,7 @@
       });
     }
 
+    // สรุปผลการแข่งขัน
     document.getElementById('btnSummary').addEventListener('click', () => {
       document.getElementById('summaryContent').innerHTML = 'กำลังโหลดข้อมูล...';
       fetch('/match/summary', {
@@ -872,7 +903,7 @@
             const win1 = data.summaryByRound.filter(r => r.winnerId === fids[0]).length;
             const win2 = data.summaryByRound.filter(r => r.winnerId === fids[1]).length;
             const finalWinnerText = data.overallWinnerId ? `🏆 <strong>ผู้ชนะรวม: ${f[data.overallWinnerId]}</strong>` :
-                                  `🤝 <strong>ผลการแข่งขันเสมอ</strong>`;
+                                   `🤝 <strong>ผลการแข่งขันเสมอ</strong>`;
             html += `<div style="margin-top:20px; font-size:1.2em; text-align:center;">${finalWinnerText}</div>`;
             document.getElementById('summaryContent').innerHTML = html;
           } else {
