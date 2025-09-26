@@ -2638,3 +2638,18 @@
 {"level":"error","message":"Invalid data from Fighter2: FALL_DETECTED, Impact:48.24, Tilt:77.8","timestamp":"2025-09-20T07:57:31.636Z"}
 {"level":"error","message":"Invalid data from Fighter2: FALL_DETECTED, Impact:41.69, Tilt:6.6","timestamp":"2025-09-20T07:58:03.557Z"}
 {"level":"error","message":"Invalid data from Fighter2: FALL_DETECTED, Impact:49.10, Tilt:42.5","timestamp":"2025-09-20T07:58:07.013Z"}
+{"level":"error","message":"Connection error: พอร์ต COM4 ไม่มี","timestamp":"2025-09-21T09:33:35.496Z"}
+{"level":"error","message":"Connection error: พอร์ต COM4 ไม่มี","timestamp":"2025-09-21T09:33:38.381Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-09-21T09:34:18.889Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 433","timestamp":"2025-09-21T09:34:18.893Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-09-21T09:34:35.999Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 433","timestamp":"2025-09-21T09:34:36.003Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 433","timestamp":"2025-09-21T09:34:49.187Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 433","timestamp":"2025-09-21T09:34:49.190Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2025-09-21T09:35:57.278Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 433","timestamp":"2025-09-21T09:35:57.283Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 31","timestamp":"2025-09-21T09:38:49.368Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM9: Unknown error code 433","timestamp":"2025-09-21T09:47:39.919Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM10: Unknown error code 433","timestamp":"2025-09-21T09:47:39.923Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM9: Unknown error code 433","timestamp":"2025-09-21T09:47:40.921Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM10: Unknown error code 433","timestamp":"2025-09-21T09:47:40.925Z"}

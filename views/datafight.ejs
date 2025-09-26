@@ -14,7 +14,7 @@
       padding: 20px;
       overflow-x: hidden;
     }
-    h1, h2 {
+    h1, h2, h3 {
       color: #fff;
       border-left: 5px solid #007bff;
       padding-left: 15px;
@@ -153,6 +153,28 @@
       max-height: 80vh;
       border-radius: 8px;
     }
+    #clipModal h3 {
+      color: #fff;
+      margin: 10px 0 5px;
+      font-size: 1.2em;
+    }
+    #timestampButtons button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s ease;
+    }
+    #timestampButtons button:hover {
+      background: #0056b3;
+    }
+    #timestampButtons button.active {
+      background: #28a745;
+    }
     .modal-close {
       position: absolute;
       top: 15px;
@@ -187,7 +209,6 @@
         max-width: 90%;
       }
     }
-
     #cameraTestModal {
       display: none;
       position: fixed;
@@ -217,7 +238,7 @@
       background: #000;
       box-shadow: 0 0 15px rgba(0,0,0,0.7);
       margin: 10px;
-      }
+    }
   </style>
 </head>
 <body>
@@ -240,8 +261,17 @@
       <div class="modal-content">
         <span class="modal-close" onclick="closeClipModal()">&times;</span>
         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-          <video id="clipVideo1" muted preload="auto" controls style="display: none;"></video>
-          <video id="clipVideo2" muted preload="auto" controls style="display: none;"></video>
+          <div style="text-align: center;">
+            <h3>กล้อง 1</h3>
+            <video id="clipVideo1" muted preload="auto" controls style="display: none;"></video>
+          </div>
+          <div style="text-align: center;">
+            <h3>กล้อง 2</h3>
+            <video id="clipVideo2" muted preload="auto" controls style="display: none;"></video>
+          </div>
+        </div>
+        <div id="timestampButtons" style="margin-top: 15px; text-align: center;">
+          <!-- ปุ่ม timestamp จะถูกเพิ่มโดย JavaScript -->
         </div>
       </div>
     </div>
@@ -351,6 +381,7 @@
           <tbody>
             <% fightDataGrouped[round].forEach(item => { 
               const fighterName = fighterIdNameMap[item.fighterid] || item.fighterid;
+              const timestamps = fightDataGrouped[round].map(t => ({ timehit: t.timehit, detail: t.fighterdetail }));
             %>
               <tr>
                 <td><%= item.timehit %></td>
@@ -359,11 +390,11 @@
                 <td><%= item.fighterdetail %></td>
                 <td>
                   <% if (item.clipdetail && item.clipdetail2) { %>
-                    <button class="watch-btn" onclick="openClipModal('<%= item.clipdetail %>', '<%= item.clipdetail2 %>', '<%= item.timehit %>')">ดูคลิป 2 มุม</button>
+                    <button class="watch-btn" onclick='openClipModal("<%= item.clipdetail %>", "<%= item.clipdetail2 %>", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูคลิป 2 มุม</button>
                   <% } else if (item.clipdetail) { %>
-                    <button class="watch-btn" onclick="openClipModal('<%= item.clipdetail %>', '', '<%= item.timehit %>')">ดูกล้อง 1</button>
+                    <button class="watch-btn" onclick='openClipModal("<%= item.clipdetail %>", "", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 1</button>
                   <% } else if (item.clipdetail2) { %>
-                    <button class="watch-btn" onclick="openClipModal('', '<%= item.clipdetail2 %>', '<%= item.timehit %>')">ดูกล้อง 2</button>
+                    <button class="watch-btn" onclick='openClipModal("", "<%= item.clipdetail2 %>", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 2</button>
                   <% } else { %>
                     ไม่มีคลิป
                   <% } %>
@@ -390,14 +421,13 @@
     let realtimeData = [];
     let roundsData = [];
     let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
-    let testStream1 = null, testStream2 = null; // สำหรับทดสอบกล้อง
+    let testStream1 = null, testStream2 = null;
 
     socket.on('connect', () => {
       console.log('Socket.IO connected');
       socket.emit('requestConnectionStatus');
     });
 
-    // ฟังสถานะการเชื่อมต่อ
     socket.on('connectionStatus', (status) => {
       console.log('Connection status:', status);
       document.getElementById('fighter1-port').textContent = status.port1 || 'ไม่ระบุ';
@@ -417,7 +447,6 @@
       document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time นักชก 2 (${status.port2 || 'ไม่ระบุ'})`;
     });
 
-    // ฟังข้อมูลเรียลไทม์
     socket.on('COM_PORT_1_DATA', (data) => {
       console.log('📥 COM_PORT_1_DATA:', data);
       const currentTimeSec = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
@@ -436,7 +465,6 @@
       });
     });
 
-    // ฟังก์ชันสลับพอร์ต
     function swapPorts() {
       socket.emit('swapCOMPorts');
       alert('กำลังสลับพอร์ตนักชก...');
@@ -608,7 +636,6 @@
         alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
         document.getElementById('stopBtn').disabled = true;
 
-        // หยุด stream กล้อง
         const cam1 = document.getElementById('cam1');
         const cam2 = document.getElementById('cam2');
         if (cam1.srcObject) {
@@ -698,10 +725,11 @@
       modal.style.display = 'none';
     }
 
-    function openClipModal(url1, url2, timehit) {
+    function openClipModal(url1, url2, timehit, timestamps, round) {
       const modal = document.getElementById('clipModal');
       const video1 = document.getElementById('clipVideo1');
       const video2 = document.getElementById('clipVideo2');
+      const timestampContainer = document.getElementById('timestampButtons');
       modal.style.display = 'flex';
       video1.style.display = url1 ? 'block' : 'none';
       video2.style.display = url2 ? 'block' : 'none';
@@ -713,6 +741,25 @@
       if (url2) video2.src = url2;
       video1.load();
       video2.load();
+
+      // สร้างปุ่ม timestamp
+      timestampContainer.innerHTML = `<h3>เหตุการณ์ในยกที่ ${round}</h3>`;
+      timestamps.forEach((ts, index) => {
+        const button = document.createElement('button');
+        button.textContent = `${ts.timehit} (${ts.detail})`;
+        button.onclick = () => {
+          let seconds = hhmmssToSeconds(ts.timehit) - 2;
+          seconds = Math.max(0, seconds);
+          if (url1) video1.currentTime = seconds;
+          if (url2) video2.currentTime = seconds;
+          video1.play().catch(err => console.error('Error playing video1:', err));
+          video2.play().catch(err => console.error('Error playing video2:', err));
+          timestampContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+        };
+        timestampContainer.appendChild(button);
+      });
+
       let seconds = hhmmssToSeconds(timehit) - 2;
       seconds = Math.max(0, seconds);
       function waitForVideoReady(video) {
@@ -729,6 +776,9 @@
         .then(() => {
           if (url1) video1.play();
           if (url2) video2.play();
+          const initialButton = Array.from(timestampContainer.querySelectorAll('button'))
+            .find(btn => btn.textContent.includes(timehit));
+          if (initialButton) initialButton.classList.add('active');
         })
         .catch(err => console.error('Error playing videos:', err));
     }
@@ -787,7 +837,6 @@
       });
     }
 
-    // สรุปผลการแข่งขัน
     document.getElementById('btnSummary').addEventListener('click', () => {
       document.getElementById('summaryContent').innerHTML = 'กำลังโหลดข้อมูล...';
       fetch('/match/summary', {
@@ -798,30 +847,33 @@
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            let html = '';
+            let html = '<table style="width:100%; border-collapse:collapse; background:#222; border-radius:6px;">';
+            html += '<thead><tr style="background:#333;"><th>ยก</th><th>นักชก</th><th>ต่อยตัว (1 คะแนน)</th><th>ต่อยหัว (2 คะแนน)</th><th>ล้ม (3 คะแนน)</th><th>รวม</th><th>ผู้ชนะ</th></tr></thead><tbody>';
             const f = data.fighters;
-            let winCount = {};
-            Object.keys(f).forEach(fid => winCount[fid] = 0);
-            data.summaryByRound.forEach(r => {
-              const round = r.round;
-              const score1 = r.scores[Object.keys(f)[0]] || 0;
-              const score2 = r.scores[Object.keys(f)[1]] || 0;
-              const winnerId = r.winnerId;
-              const winnerName = winnerId ? f[winnerId] : 'เสมอ';
-              if (winnerId) winCount[winnerId]++;
-              html += `<h3>ยกที่ ${round}</h3>`;
-              html += `<p>${f[Object.keys(f)[0]]}: ${score1} คะแนน</p>`;
-              html += `<p>${f[Object.keys(f)[1]]}: ${score2} คะแนน</p>`;
-              html += `<p><strong>ผู้ชนะยกนี้: ${winnerName}</strong></p>`;
-              html += `<hr>`;
-            });
             const fids = Object.keys(f);
-            const win1 = winCount[fids[0]];
-            const win2 = winCount[fids[1]];
-            let finalWinnerText = win1 > win2 ? `🏆 <strong>ผู้ชนะรวม: ${f[fids[0]]}</strong>` :
-                                  win2 > win1 ? `🏆 <strong>ผู้ชนะรวม: ${f[fids[1]]}</strong>` :
+            data.summaryByRound.forEach(r => {
+              const s1 = r.scores[fids[0]];
+              const s2 = r.scores[fids[1]];
+              const winnerName = r.winnerId ? f[r.winnerId] : 'เสมอ';
+              html += `<tr><td rowspan="2" style="border:1px solid #444; padding:8px;">${r.round}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${f[fids[0]]}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s1.body}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s1.head}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s1.fall}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s1.total}</td>`;
+              html += `<td rowspan="2" style="border:1px solid #444; padding:8px;">${winnerName}</td></tr>`;
+              html += `<tr><td style="border:1px solid #444; padding:8px;">${f[fids[1]]}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s2.body}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s2.head}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s2.fall}</td>`;
+              html += `<td style="border:1px solid #444; padding:8px;">${s2.total}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            const win1 = data.summaryByRound.filter(r => r.winnerId === fids[0]).length;
+            const win2 = data.summaryByRound.filter(r => r.winnerId === fids[1]).length;
+            const finalWinnerText = data.overallWinnerId ? `🏆 <strong>ผู้ชนะรวม: ${f[data.overallWinnerId]}</strong>` :
                                   `🤝 <strong>ผลการแข่งขันเสมอ</strong>`;
-            html += `<div style="margin-top:10px; font-size: 1.2em;">${finalWinnerText}</div>`;
+            html += `<div style="margin-top:20px; font-size:1.2em; text-align:center;">${finalWinnerText}</div>`;
             document.getElementById('summaryContent').innerHTML = html;
           } else {
             document.getElementById('summaryContent').innerHTML = `<p style="color:#ff4444;">เกิดข้อผิดพลาด: ${data.message}</p>`;

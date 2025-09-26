@@ -80,7 +80,7 @@ const processSensorData = (rawData, portName, state, emitEvent) => {
     { name: 'stomach', value: stomachVal, threshold: 1500 },
     { name: 'left', value: leftVal, threshold: 1500 },
     { name: 'right', value: rightVal, threshold: 1500 },
-    { name: 'head', value: headVal, threshold: 100 } // Changed threshold from 5 to 100
+    { name: 'head', value: headVal, threshold: 40 } // Changed threshold from 5 to 40
   ];
   sensors.forEach(({ name, value, threshold }) => {
     if (value >= threshold) {
@@ -252,7 +252,7 @@ setInterval(() => {
     sensors.forEach((name) => {
       if (state.waiting[name] && now - state.lastTime[name] > SENSOR_TIMEOUT && state.buffers[name].length > 0) {
         const maxValue = Math.max(...state.buffers[name]);
-        const threshold = name === 'head' ? 100 : 1500; // Changed threshold from 5 to 100
+        const threshold = name === 'head' ? 40 : 1500; // Changed threshold from 5 to 40
         if (maxValue >= threshold) result[name] = maxValue;
         state.buffers[name] = [];
         state.waiting[name] = false;
@@ -591,23 +591,58 @@ app.post('/match/summary', async (req, res) => {
     rounds.forEach(round => {
       const roundData = results.filter(r => r.round === round);
       const scores = {};
+      const details = {};
+      fighterIds.forEach(fid => {
+        scores[fid] = { body: 0, head: 0, fall: 0, total: 0 };
+        details[fid] = { bodyHits: [], headHits: [], fallHits: [] };
+      });
       roundData.forEach(r => {
-        if (!r.fighterdetail.includes('fall')) {
-          scores[r.fighterid] = (scores[r.fighterid] || 0) + 1;
-        } else {
-          scores[r.fighterid] = (scores[r.fighterid] || 0) + 2; // Fall gives 2 points
+        const fid = r.fighterid;
+        if (r.fighterdetail.includes('fall')) {
+          scores[fid].fall += 1;
+          scores[fid].total += 3;
+          details[fid].fallHits.push(r.fighterdetail);
+        } else if (r.fighterdetail.includes('head')) {
+          scores[fid].head += 1;
+          scores[fid].total += 2;
+          details[fid].headHits.push(r.fighterdetail);
+        } else if (r.fighterdetail.includes('chest') || r.fighterdetail.includes('stomach') || 
+                   r.fighterdetail.includes('left') || r.fighterdetail.includes('right')) {
+          scores[fid].body += 1;
+          scores[fid].total += 1;
+          details[fid].bodyHits.push(r.fighterdetail);
         }
       });
       const [fighter1Id, fighter2Id] = fighterIds;
-      const score1 = scores[fighter1Id] || 0;
-      const score2 = scores[fighter2Id] || 0;
-      let winnerId = score1 > score2 ? fighter1Id : score2 > score1 ? fighter2Id : null;
-      summaryByRound.push({ round, scores: { [fighter1Id]: score1, [fighter2Id]: score2 }, winnerId });
+      const winnerId = scores[fighter1Id].total > scores[fighter2Id].total ? fighter1Id :
+                       scores[fighter2Id].total > scores[fighter1Id].total ? fighter2Id : null;
+      summaryByRound.push({
+        round,
+        scores: {
+          [fighter1Id]: scores[fighter1Id],
+          [fighter2Id]: scores[fighter2Id]
+        },
+        details: {
+          [fighter1Id]: details[fighter1Id],
+          [fighter2Id]: details[fighter2Id]
+        },
+        winnerId
+      });
     });
+    // Calculate overall winner
+    let winCount = {};
+    fighterIds.forEach(fid => winCount[fid] = 0);
+    summaryByRound.forEach(r => {
+      if (r.winnerId) winCount[r.winnerId]++;
+    });
+    const [fid1, fid2] = fighterIds;
+    const overallWinnerId = winCount[fid1] > winCount[fid2] ? fid1 :
+                            winCount[fid2] > winCount[fid1] ? fid2 : null;
     res.json({
       success: true,
       summaryByRound,
-      fighters: { [fighterIds[0]]: fighterMap[fighterIds[0]], [fighterIds[1]]: fighterMap[fighterIds[1]] }
+      fighters: { [fid1]: fighterMap[fid1], [fid2]: fighterMap[fid2] },
+      overallWinnerId
     });
   } catch (err) {
     logger.error(`Error fetching match summary ${schedulefightId}: ${err.message}`);
