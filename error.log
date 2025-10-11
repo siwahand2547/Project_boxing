@@ -2653,3 +2653,9 @@
 {"level":"error","message":"Port error Fighter2: Opening COM10: Unknown error code 433","timestamp":"2025-09-21T09:47:39.923Z"}
 {"level":"error","message":"Port error Fighter1: Opening COM9: Unknown error code 433","timestamp":"2025-09-21T09:47:40.921Z"}
 {"level":"error","message":"Port error Fighter2: Opening COM10: Unknown error code 433","timestamp":"2025-09-21T09:47:40.925Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2025-09-26T08:34:44.191Z"}
+{"level":"error","message":"Invalid data from Fighter2: 1807,0,0,0,9.51,0,0","timestamp":"2025-09-26T08:44:59.669Z"}
+{"level":"error","message":"Invalid data from Fighter2: 1410,0,0,0,9.16,0,0","timestamp":"2025-09-26T08:45:01.320Z"}
+{"level":"error","message":"Invalid data from Fighter2: 1230,0,0,0,10.95,0,0","timestamp":"2025-09-26T08:45:10.949Z"}
+{"level":"error","message":"Invalid data from Fighter2: 1328,0,0,0,11.03,0,0","timestamp":"2025-09-26T08:45:10.950Z"}
+{"level":"error","message":"Invalid data from Fighter2: 1373,0,0,0,9.88,0,0","timestamp":"2025-09-26T08:45:11.186Z"}

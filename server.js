@@ -492,18 +492,44 @@ app.post('/match/create', async (req, res) => {
 });
 
 app.get('/match', async (req, res) => {
-  const sql = `
-    SELECT s.id, s.fight_date, f1.name AS fighter1, f2.name AS fighter2
-    FROM schedulefight s
-    JOIN fighters f1 ON s.fighterid_1 = f1.id
-    JOIN fighters f2 ON s.fighterid_2 = f2.id
-    ORDER BY s.fight_date ASC`;
   try {
-    const [fights] = await db.pool.query(sql);
-    res.render('matchSchedule', { fights });
+    // ดึงข้อมูลการแข่งขัน
+    const [fights] = await db.pool.query(`
+      SELECT s.id, s.fight_date, f1.name AS fighter1, f2.name AS fighter2
+      FROM schedulefight s
+      JOIN fighters f1 ON s.fighterid_1 = f1.id
+      JOIN fighters f2 ON s.fighterid_2 = f2.id
+      ORDER BY s.fight_date ASC, s.id ASC
+    `);
+
+    // ดึงวันที่ที่มีในฐานข้อมูล
+    const [distinctDates] = await db.pool.query(`
+      SELECT DISTINCT fight_date
+      FROM schedulefight
+      ORDER BY fight_date ASC
+    `);
+
+    // เพิ่ม matchCount และแปลงวันที่
+    let currentDate = null;
+    let matchCount = 0;
+    const fightsWithCount = fights.map(fight => {
+      const fightDate = fight.fight_date.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (fightDate !== currentDate) {
+        currentDate = fightDate;
+        matchCount = 1;
+      } else {
+        matchCount++;
+      }
+      return { ...fight, matchCount, fightDate };
+    });
+
+    // แปลง distinctDates เป็น array ของ YYYY-MM-DD
+    const availableDates = distinctDates.map(row => row.fight_date.toISOString().split('T')[0]);
+
+    res.render('matchSchedule', { fights: fightsWithCount, availableDates });
   } catch (err) {
-    logger.error(`Error fetching matches: ${err.message}`);
-    res.status(500).send('DB error');
+    logger.error(`Error fetching match schedule: ${err.message}`);
+    res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลการแข่งขัน');
   }
 });
 

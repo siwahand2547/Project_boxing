@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ตารางการแข่งขัน</title>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -19,6 +21,55 @@
       color: #fff;
       margin-bottom: 30px;
       text-shadow: 0 2px 4px #000;
+    }
+
+    .filter-container {
+      text-align: center;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-container input {
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #fff;
+      font-size: 16px;
+    }
+
+    .filter-container input[type="text"] {
+      width: 300px;
+    }
+
+    .filter-container input::placeholder {
+      color: #aaa;
+    }
+
+    .filter-container button {
+      padding: 10px 20px;
+      background: #00ffff;
+      color: #121212;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .filter-container button:hover {
+      background: #fff;
+    }
+
+    .error-message {
+      color: #ff4444;
+      font-size: 14px;
+      margin-top: 5px;
+      display: none;
+      width: 100%;
+      text-align: center;
     }
 
     table {
@@ -83,6 +134,16 @@
       color: #0f0;
     }
 
+    .flatpickr-input {
+      width: 200px;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #fff;
+      font-size: 16px;
+    }
+
     @media screen and (max-width: 768px) {
       table, thead, tbody, th, td, tr {
         display: block;
@@ -108,6 +169,17 @@
         font-weight: bold;
         color: #ccc;
       }
+
+      .filter-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .filter-container input[type="text"],
+      .filter-container button,
+      .flatpickr-input {
+        width: 90%;
+      }
     }
   </style>
 </head>
@@ -116,10 +188,22 @@
 
   <h1>ตารางการแข่งขัน</h1>
 
-  <table>
+  <div class="filter-container">
+    <input type="text" id="dateFilterSingle" placeholder="เลือกวันที่ (YYYY-MM-DD)">
+    <datalist id="availableDates">
+      <% availableDates.forEach(date => { %>
+        <option value="<%= date %>"></option>
+      <% }) %>
+    </datalist>
+    <input type="text" id="dateFilterMulti" placeholder="กรอกวันที่หลายวัน (YYYY-MM-DD, YYYY-MM-DD, ...)" oninput="filterTable()">
+    <button onclick="clearFilters()">Clear</button>
+    <div id="errorMessage" class="error-message">วันที่ไม่ถูกต้อง กรุณาใช้รูปแบบ YYYY-MM-DD</div>
+  </div>
+
+  <table id="fightTable">
     <thead>
       <tr>
-        <th>การแข่งขันครั้งที่</th>
+        <th>คู่ที่</th>
         <th>วันที่แข่งขัน</th>
         <th>นักชกคนที่ 1</th>
         <th>นักชกคนที่ 2</th>
@@ -128,26 +212,97 @@
       </tr>
     </thead>
     <tbody>
-      <% fights.forEach((fight, index) => { %>
-        <tr>
-          <td data-label="คู่ที่"><%= index + 1 %></td>
-          <td data-label="วันที่แข่งขัน"><%= new Date(fight.fight_date).toLocaleDateString('sv-SE') %></td>
+      <% fights.forEach(fight => { %>
+        <tr data-date="<%= fight.fightDate %>">
+          <td data-label="คู่ที่"><%= fight.matchCount %></td>
+          <td data-label="วันที่แข่งขัน"><%= fight.fightDate %></td>
           <td data-label="นักชกคนที่ 1"><%= fight.fighter1 %></td>
           <td data-label="นักชกคนที่ 2"><%= fight.fighter2 %></td>
           <td data-label="เปรียบเทียบข้อมูล">
             <a href="/fights/data/<%= fight.id %>">ดูข้อมูล</a>
           </td>
-<td data-label="ลบ">
-  <form method="POST" action="/match/delete/<%= fight.id %>" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบแมตช์นี้?');">
-    <button type="submit" style="background:#c00; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">
-      ลบ
-    </button>
-  </form>
-</td>
-
+          <td data-label="ลบ">
+            <form method="POST" action="/match/delete/<%= fight.id %>" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบแมตช์นี้?');">
+              <button type="submit" style="background:#c00; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">
+                ลบ
+              </button>
+            </form>
+          </td>
         </tr>
       <% }) %>
     </tbody>
   </table>
+
+  <script>
+    // Initialize flatpickr for single date picker
+    flatpickr('#dateFilterSingle', {
+      dateFormat: 'Y-m-d',
+      allowInput: true,
+      altInput: false,
+      enable: [<% availableDates.forEach((date, index) => { %>"<%= date %>"<% if (index < availableDates.length - 1) { %>,<% } %><% }) %>],
+      onChange: function() {
+        filterTable();
+      }
+    });
+
+    function filterTable() {
+      const singleDate = document.getElementById('dateFilterSingle').value;
+      const multiDate = document.getElementById('dateFilterMulti').value.trim();
+      const errorMessage = document.getElementById('errorMessage');
+      const rows = document.querySelectorAll('#fightTable tbody tr');
+
+      // ถ้าไม่มีการกรอกทั้งสองช่อง แสดงทุกแถว
+      if (!singleDate && !multiDate) {
+        rows.forEach(row => row.style.display = '');
+        errorMessage.style.display = 'none';
+        return;
+      }
+
+      // รวมวันที่จากทั้งสอง input
+      let inputDates = [];
+
+      // จาก date picker (YYYY-MM-DD)
+      if (singleDate) {
+        inputDates.push(singleDate);
+      }
+
+      // จาก text input (YYYY-MM-DD)
+      if (multiDate) {
+        const dates = multiDate.split(',').map(d => d.trim()).filter(d => d);
+        dates.forEach(date => {
+          const match = date.match(/^\d{4}-\d{2}-\d{2}$/);
+          if (match) {
+            inputDates.push(date);
+          }
+        });
+      }
+
+      // แสดงข้อผิดพลาดถ้าไม่มีวันที่ถูกต้อง
+      if (inputDates.length === 0 && multiDate) {
+        errorMessage.style.display = 'block';
+        rows.forEach(row => row.style.display = 'none');
+        return;
+      } else {
+        errorMessage.style.display = 'none';
+      }
+
+      // ฟิลเตอร์แถว
+      rows.forEach(row => {
+        const rowDate = row.getAttribute('data-date');
+        row.style.display = inputDates.includes(rowDate) ? '' : 'none';
+      });
+    }
+
+    function clearFilters() {
+      document.getElementById('dateFilterSingle').value = '';
+      document.getElementById('dateFilterMulti').value = '';
+      document.getElementById('errorMessage').style.display = 'none';
+      document.querySelectorAll('#fightTable tbody tr').forEach(row => {
+        row.style.display = '';
+      });
+      // ล้าง flatpickr
+      flatpickr('#dateFilterSingle').clear();
+    }
+  </script>
 </body>
 </html>
