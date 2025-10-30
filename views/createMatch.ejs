@@ -149,28 +149,30 @@
   const socket = io();
 
   // ✅ updateStatus แบบใหม่
-  const updateStatus = ({ port1, connected1, port2, connected2 }) => {
-    console.log('Received connectionStatus:', { port1, connected1, port2, connected2 });
+  const updateStatus = ({ fighterPort1, fighterPort2 }) => {
+  const fighter1Status = document.getElementById('fighter1-status');
+  const fighter2Status = document.getElementById('fighter2-status');
+  const testBtn = document.getElementById('testBtn');
+  const notice = document.getElementById('comNotice');
 
-    const fighter1Status = document.getElementById('fighter1-status');
-    const fighter2Status = document.getElementById('fighter2-status');
-    const testBtn = document.getElementById('testBtn');
-    const notice = document.getElementById('comNotice');
+  const connected1 = !!fighterPort1;
+  const connected2 = !!fighterPort2;
 
-    fighter1Status.textContent = connected1 
-      ? `เชื่อมต่อแล้ว (${port1 || 'ไม่ระบุ'})` 
-      : `ยังไม่เชื่อมต่อ (${port1 || 'ไม่ระบุ'})`;
-    fighter1Status.className = connected1 ? 'connected' : 'disconnected';
+  fighter1Status.textContent = connected1 
+    ? `เชื่อมต่อแล้ว (${fighterPort1})` 
+    : 'ยังไม่เชื่อมต่อ';
+  fighter1Status.className = connected1 ? 'connected' : 'disconnected';
 
-    fighter2Status.textContent = connected2 
-      ? `เชื่อมต่อแล้ว (${port2 || 'ไม่ระบุ'})` 
-      : `ยังไม่เชื่อมต่อ (${port2 || 'ไม่ระบุ'})`;
-    fighter2Status.className = connected2 ? 'connected' : 'disconnected';
+  fighter2Status.textContent = connected2 
+    ? `เชื่อมต่อแล้ว (${fighterPort2})` 
+    : 'ยังไม่เชื่อมต่อ';
+  fighter2Status.className = connected2 ? 'connected' : 'disconnected';
 
-    const isBothConnected = connected1 && connected2;
-    testBtn.disabled = !isBothConnected;
-    notice.style.display = isBothConnected ? 'none' : 'block';
-  };
+  const isBothConnected = connected1 && connected2;
+  testBtn.disabled = !isBothConnected;
+  notice.style.display = isBothConnected ? 'none' : 'block';
+};
+
 
   // ฟัง event จาก server
   socket.on('connectionStatus', updateStatus);
