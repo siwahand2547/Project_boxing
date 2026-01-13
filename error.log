@@ -2663,3 +2663,5 @@
 {"level":"error","message":"Connection error: พอร์ต COM5 ไม่มี","timestamp":"2025-10-30T09:52:18.935Z"}
 {"level":"error","message":"Connection error: พอร์ต COM5 ไม่มี","timestamp":"2025-10-30T09:52:19.682Z"}
 {"level":"error","message":"Port error Fighter2: Opening COM8: Unknown error code 121","timestamp":"2025-10-30T09:53:08.378Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-13T09:47:12.933Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-13T09:47:56.914Z"}

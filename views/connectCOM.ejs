@@ -1,196 +1,419 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>เชื่อมต่อพอร์ตนักชก</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #121212, #1a1a1a);
-      color: #fff;
-      margin: 0;
-      padding: 20px;
-      overflow-x: hidden;
+    :root {
+      --bg: #0f0f11;
+      --card: #1a1a1f;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --red: #ef4444;
+      --green: #22c55e;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --border: #374151;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
+
     h1 {
-      color: #fff;
-      border-left: 5px solid #007bff;
-      padding-left: 15px;
-      margin-bottom: 20px;
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin: 0 0 2rem 0;
+      padding-left: 1rem;
+      border-left: 5px solid var(--primary);
     }
-    .port-selection {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin-bottom: 20px;
+
+    .port-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
     }
-    .port-selection div {
-      flex: 1 1 45%;
-      min-width: 300px;
-      background: #181818;
-      padding: 15px;
-      border-radius: 10px;
-      border: 2px solid #007bff;
+
+    .port-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.2s ease;
     }
-    .port-selection div.fighter2 {
-      border-color: #6c757d;
+
+    .port-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
-    .port-selection h2 {
-      margin: 0 0 10px 0;
-      font-size: 1.2em;
+
+    .port-card.fighter2 {
+      border-color: #4b5563;
     }
-    input[type="text"], button {
-      padding: 10px;
-      margin: 5px 0;
-      border-radius: 6px;
-      border: none;
-      font-size: 1em;
+
+    .port-card h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.25rem;
+      color: var(--text);
     }
+
+    .input-group {
+      margin-bottom: 1rem;
+    }
+
     input[type="text"] {
-      width: calc(100% - 20px);
-      background: #333;
-      color: #fff;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      color: white;
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color 0.2s;
     }
-    button {
-      background: #007bff;
-      color: #fff;
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    input[type="text"]::placeholder {
+      color: #6b7280;
+    }
+
+    .btn {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
+      transition: all 0.2s;
     }
-    button:hover {
-      background: #0056b3;
-      transform: scale(1.05);
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
     }
-    button:disabled {
-      background: #555;
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      background: #374151;
+      color: #6b7280;
       cursor: not-allowed;
-      opacity: 0.6;
     }
-    .connected { color: #00ff00; font-weight: bold; }
-    .disconnected { color: #ff4444; font-weight: bold; }
-    .error { color: #ff4444; font-style: italic; }
-    .sensor-data { margin-top: 10px; background: #222; padding: 10px; border-radius: 6px; }
-    @media (max-width: 768px) {
-      .port-selection div {
-        flex: 1 1 100%;
-      }
+
+    .btn-danger {
+      background: var(--red);
+      color: white;
+      margin-top: 1rem;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+    }
+
+    .status-line {
+      margin: 0.75rem 0;
+      font-size: 0.95rem;
+    }
+
+    .status {
+      font-weight: 600;
+    }
+
+    .connected { color: var(--green); }
+    .disconnected { color: var(--red); }
+
+    .error {
+      color: #f87171;
+      font-size: 0.9rem;
+      min-height: 1.2rem;
+      margin: 0.25rem 0 0.75rem;
+    }
+
+    .sensor-data {
+      background: #111827;
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.95rem;
+      min-height: 80px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 1rem; }
+      h1 { font-size: 1.5rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <%- include('partials/navbar') %>
+
     <h1>เชื่อมต่อพอร์ตนักชก</h1>
-    <div class="port-selection">
-      <div>
+
+    <div class="port-grid">
+      <!-- นักชก 1 -->
+      <div class="port-card">
         <h2>นักชก 1</h2>
-        <input type="text" id="comPort1" placeholder="เช่น COM4" />
-        <button id="connectBtn" onclick="connectPort()">เชื่อมต่อ</button>
-        <p>สถานะ: <span id="com1-status" class="disconnected">ไม่ได้เชื่อมต่อ</span></p>
-        <p id="com1-error" class="error"></p>
+        <div class="input-group" style="display: flex; gap: 0.5rem; align-items: center;">
+            <input 
+              type="text" 
+              id="comPort1" 
+              placeholder="พิมพ์ COMx ตามที่เห็นในหน้าต่างเลือกพอร์ต (เช่น COM4)" 
+              autocomplete="off" 
+              style="flex: 1;" 
+            />
+            <button type="button" class="btn btn-primary" onclick="selectAndHintPort(1)">เลือกพอร์ต</button>
+          </div>
+        <button class="btn btn-primary" id="connectBtn1" onclick="connectFighter(1)">เชื่อมต่อนักชก 1</button>
+        <button 
+          class="btn btn-danger" 
+          id="disconnectBtn1" 
+          onclick="disconnectFighter(1)" 
+          style="margin-top: 0.5rem; display: none;"  <!-- ซ่อนตอนแรก -->
+        >
+          ตัดการเชื่อมต่อนักชก 1
+        </button>
+
+        <div class="status-line">
+          สถานะ: <span id="com1-status" class="status disconnected">ไม่ได้เชื่อมต่อ</span>
+        </div>
+        <div class="error" id="com1-error"></div>
+
         <div class="sensor-data">
-          <p id="com1-data">ข้อมูลเซ็นเซอร์: รอข้อมูล...</p>
+          <span id="com1-data">ข้อมูลเซ็นเซอร์: รอข้อมูล...</span>
         </div>
       </div>
-      <div class="fighter2">
+
+      <!-- นักชก 2 -->
+      <div class="port-card fighter2">
         <h2>นักชก 2</h2>
-        <input type="text" id="comPort2" placeholder="เช่น COM5" />
-        <button id="connectBtn" onclick="connectPort()">เชื่อมต่อ</button>
-        <p>สถานะ: <span id="com2-status" class="disconnected">ไม่ได้เชื่อมต่อ</span></p>
-        <p id="com2-error" class="error"></p>
+        <div class="input-group" style="display: flex; gap: 0.5rem; align-items: center;">
+            <input 
+              type="text" 
+              id="comPort2" 
+              placeholder="พิมพ์ COMx ตามที่เห็นในหน้าต่างเลือกพอร์ต (เช่น COM4)" 
+              autocomplete="off" 
+              style="flex: 1;" 
+            />
+            <button type="button" class="btn btn-primary" onclick="selectAndHintPort(2)">เลือกพอร์ต</button>
+          </div>
+        <button class="btn btn-primary" id="connectBtn2" onclick="connectFighter(2)">เชื่อมต่อนักชก 2</button>
+        <button 
+          class="btn btn-danger" 
+          id="disconnectBtn2" 
+          onclick="disconnectFighter(2)" 
+          style="margin-top: 0.5rem; display: none;"
+        >
+          ตัดการเชื่อมต่อนักชก 2
+        </button>
+
+        <div class="status-line">
+          สถานะ: <span id="com2-status" class="status disconnected">ไม่ได้เชื่อมต่อ</span>
+        </div>
+        <div class="error" id="com2-error"></div>
+
         <div class="sensor-data">
-          <p id="com2-data">ข้อมูลเซ็นเซอร์: รอข้อมูล...</p>
+          <span id="com2-data">ข้อมูลเซ็นเซอร์: รอข้อมูล...</span>
         </div>
       </div>
     </div>
-    <button onclick="disconnectPorts()" style="background-color: #dc3545;">ตัดการเชื่อมต่อทั้งหมด</button>
+
+    <button class="btn btn-danger" onclick="disconnectPorts()">ตัดการเชื่อมต่อทั้งหมด</button>
   </div>
-  <script>
-    const socket = io();
-    const SOCKET_EVENTS = {
-      CONNECTION_STATUS: 'connectionStatus',
-      CONNECTION_ERROR: 'connectionError',
-      COM_PORT_1_DATA: 'COM_PORT_1_DATA',
-      COM_PORT_2_DATA: 'COM_PORT_2_DATA'
-    };
-    socket.on('connect', () => {
-      console.log('Socket.IO connected');
-      socket.emit('requestConnectionStatus');
-    });
-    socket.on(SOCKET_EVENTS.CONNECTION_STATUS, ({ fighterPort1, fighterPort2 }) => {
-      console.log('📡 connectionStatus:', { fighterPort1, fighterPort2 });
-      const com1StatusEl = document.getElementById('com1-status');
-      const com2StatusEl = document.getElementById('com2-status');
-      const com1ErrorEl = document.getElementById('com1-error');
-      const com2ErrorEl = document.getElementById('com2-error');
-      com1StatusEl.textContent = fighterPort1 ? `เชื่อมต่อ ${fighterPort1}` : 'ไม่ได้เชื่อมต่อ';
-      com1StatusEl.className = fighterPort1 ? 'connected' : 'disconnected';
-      com2StatusEl.textContent = fighterPort2 ? `เชื่อมต่อ ${fighterPort2}` : 'ไม่ได้เชื่อมต่อ';
-      com2StatusEl.className = fighterPort2 ? 'connected' : 'disconnected';
-      document.getElementById('connectBtn').disabled = fighterPort1 && fighterPort2;
-      com1ErrorEl.textContent = '';
-      com2ErrorEl.textContent = '';
-    });
-    socket.on(SOCKET_EVENTS.CONNECTION_ERROR, (message) => {
-      console.error('🚫 Connection error:', message);
-      const com1ErrorEl = document.getElementById('com1-error');
-      const com2ErrorEl = document.getElementById('com2-error');
-      if (message.includes('Fighter1')) {
-        com1ErrorEl.textContent = message;
-      } else if (message.includes('Fighter2')) {
-        com2ErrorEl.textContent = message;
+
+<script>
+  const socket = io();
+
+  const SOCKET_EVENTS = {
+    CONNECTION_STATUS: 'connectionStatus',
+    CONNECTION_ERROR: 'connectionError',
+    COM_PORT_1_DATA: 'COM_PORT_1_DATA',
+    COM_PORT_2_DATA: 'COM_PORT_2_DATA'
+  };
+
+  socket.on('connect', () => {
+    socket.emit('requestConnectionStatus');
+  });
+
+  // อัปเดตสถานะเมื่อได้รับจาก server
+  // ปรับการรับ connectionStatus ให้แสดง/ซ่อนปุ่ม disconnect ตามสถานะ
+socket.on(SOCKET_EVENTS.CONNECTION_STATUS, ({ fighterPort1, fighterPort2 }) => {
+  // Fighter 1
+  const status1 = document.getElementById('com1-status');
+  const btnConnect1 = document.getElementById('connectBtn1');
+  const btnDisconnect1 = document.getElementById('disconnectBtn1');
+  const error1 = document.getElementById('com1-error');
+
+  if (fighterPort1) {
+    status1.textContent = `เชื่อมต่อ ${fighterPort1}`;
+    status1.className = 'status connected';
+    btnConnect1.disabled = true;
+    btnConnect1.textContent = 'เชื่อมต่อแล้ว';
+    btnDisconnect1.style.display = 'inline-block';  // แสดงปุ่มตัด
+    error1.textContent = '';
+  } else {
+    status1.textContent = 'ไม่ได้เชื่อมต่อ';
+    status1.className = 'status disconnected';
+    btnConnect1.disabled = false;
+    btnConnect1.textContent = 'เชื่อมต่อนักชก 1';
+    btnDisconnect1.style.display = 'none';  // ซ่อนปุ่มตัด
+  }
+
+  // Fighter 2 (เหมือนกัน)
+  const status2 = document.getElementById('com2-status');
+  const btnConnect2 = document.getElementById('connectBtn2');
+  const btnDisconnect2 = document.getElementById('disconnectBtn2');
+  const error2 = document.getElementById('com2-error');
+
+  if (fighterPort2) {
+    status2.textContent = `เชื่อมต่อ ${fighterPort2}`;
+    status2.className = 'status connected';
+    btnConnect2.disabled = true;
+    btnConnect2.textContent = 'เชื่อมต่อแล้ว';
+    btnDisconnect2.style.display = 'inline-block';
+    error2.textContent = '';
+  } else {
+    status2.textContent = 'ไม่ได้เชื่อมต่อ';
+    status2.className = 'status disconnected';
+    btnConnect2.disabled = false;
+    btnConnect2.textContent = 'เชื่อมต่อนักชก 2';
+    btnDisconnect2.style.display = 'none';
+  }
+});
+
+  socket.on(SOCKET_EVENTS.CONNECTION_ERROR, (message) => {
+    if (message.includes('Fighter1') || message.includes('1')) {
+      document.getElementById('com1-error').textContent = message;
+    } else if (message.includes('Fighter2') || message.includes('2')) {
+      document.getElementById('com2-error').textContent = message;
+    } else {
+      document.getElementById('com1-error').textContent = message;
+      document.getElementById('com2-error').textContent = message;
+    }
+  });
+
+  socket.on(SOCKET_EVENTS.COM_PORT_1_DATA, (data) => {
+    document.getElementById('com1-data').textContent = `ข้อมูลเซ็นเซอร์: ${JSON.stringify(data, null, 2)}`;
+  });
+
+  socket.on(SOCKET_EVENTS.COM_PORT_2_DATA, (data) => {
+    document.getElementById('com2-data').textContent = `ข้อมูลเซ็นเซอร์: ${JSON.stringify(data, null, 2)}`;
+  });
+
+  // ฟังก์ชันเชื่อมต่อแยกตามนักชก
+  function connectFighter(fighterNum) {
+    const inputId = `comPort${fighterNum}`;
+    const btnId = `connectBtn${fighterNum}`;
+    const port = document.getElementById(inputId).value.trim().toUpperCase();
+
+    if (!port || !/^COM\d+$/.test(port)) {
+      alert(`กรุณากรอกพอร์ตนักชก ${fighterNum} ให้ถูกต้อง (เช่น COM4)`);
+      return;
+    }
+
+    const eventName = fighterNum === 1 ? 'connectFighter1' : 'connectFighter2';
+
+    socket.emit(eventName, { port });
+
+    // แสดงสถานะระหว่างรอ server ตอบกลับ
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.textContent = 'กำลังเชื่อมต่อ...';
+  }
+  // ฟังก์ชันตัดการเชื่อมต่อแยก
+  function disconnectFighter(fighterNum) {
+    const eventName = fighterNum === 1 ? 'disconnectFighter1' : 'disconnectFighter2';
+    socket.emit(eventName);
+
+    // แสดง feedback ทันที (จะอัปเดตจริงจาก server)
+    const btnConnect = document.getElementById(`connectBtn${fighterNum}`);
+    const btnDisconnect = document.getElementById(`disconnectBtn${fighterNum}`);
+    btnConnect.disabled = false;
+    btnConnect.textContent = `เชื่อมต่อนักชก ${fighterNum}`;
+    btnDisconnect.style.display = 'none';  // ซ่อนปุ่มตัด
+
+    // Clear ข้อมูลแสดงผล
+    document.getElementById(`com${fighterNum}-data`).textContent = 'ข้อมูลเซ็นเซอร์: รอข้อมูล...';
+  }
+
+  function disconnectPorts() {
+    socket.emit('disconnectCOMPorts');
+    document.getElementById('comPort1').value = '';
+    document.getElementById('comPort2').value = '';
+    document.getElementById('connectBtn1').disabled = false;
+    document.getElementById('connectBtn1').textContent = 'เชื่อมต่อนักชก 1';
+    document.getElementById('connectBtn2').disabled = false;
+    document.getElementById('connectBtn2').textContent = 'เชื่อมต่อนักชก 2';
+    document.getElementById('com1-data').textContent = 'ข้อมูลเซ็นเซอร์: รอข้อมูล...';
+    document.getElementById('com2-data').textContent = 'ข้อมูลเซ็นเซอร์: รอข้อมูล...';
+  }
+
+  // ฟังก์ชันเลือกพอร์ต (ยังคงเหมือนเดิม ช่วยให้เห็นชื่อ COM ใน dialog)
+  async function selectAndHintPort(fighterNumber) {
+    if (!('serial' in navigator)) {
+      alert('เบราว์เซอร์ไม่รองรับการเลือกพอร์ตอัตโนมัติ\nกรุณาใช้ Chrome หรือ Edge ล่าสุด และเปิดเว็บด้วย HTTPS');
+      return;
+    }
+
+    try {
+      const port = await navigator.serial.requestPort();
+      const info = port.getInfo?.() || {};
+
+      let hint = '';
+      if (info.usbVendorId && info.usbProductId) {
+        const vid = info.usbVendorId.toString(16).padStart(4, '0').toUpperCase();
+        const pid = info.usbProductId.toString(16).padStart(4, '0').toUpperCase();
+        hint = `\n\nHint: อุปกรณ์ USB (VID: ${vid}, PID: ${pid})`;
+      }
+
+      alert(
+        `เลือกพอร์ตเรียบร้อยแล้ว!\n\n` +
+        `ชื่อพอร์ตจริง (เช่น COM4, COM5) แสดงในหน้าต่างที่เพิ่งเปิด\n` +
+        `กรุณาดูชื่อนั้น แล้วพิมพ์ลงในช่องกรอกด้านบน (เช่น COM4)${hint}\n\n` +
+        `หลังพิมพ์เสร็จ กดปุ่ม "เชื่อมต่อนักชก X" เพื่อเริ่มใช้งาน`
+      );
+
+    } catch (err) {
+      if (err.name === 'NotFoundError') {
+        alert('ไม่ได้เลือกพอร์ตใด ๆ');
       } else {
-        com1ErrorEl.textContent = message;
-        com2ErrorEl.textContent = message;
+        alert('เกิดข้อผิดพลาด: ' + (err.message || 'ไม่ทราบสาเหตุ'));
       }
-    });
-    socket.on(SOCKET_EVENTS.COM_PORT_1_DATA, (data) => {
-      console.log('COM_PORT_1_DATA:', data);
-      const com1DataEl = document.getElementById('com1-data');
-      com1DataEl.textContent = `ข้อมูลเซ็นเซอร์: ${JSON.stringify(data)}`;
-    });
-    socket.on(SOCKET_EVENTS.COM_PORT_2_DATA, (data) => {
-      console.log('COM_PORT_2_DATA:', data);
-      const com2DataEl = document.getElementById('com2-data');
-      com2DataEl.textContent = `ข้อมูลเซ็นเซอร์: ${JSON.stringify(data)}`;
-    });
-    function connectPort() {
-      const fighterPort1 = document.getElementById('comPort1').value.trim().toUpperCase();
-      const fighterPort2 = document.getElementById('comPort2').value.trim().toUpperCase();
-      const portRegex = /^COM\d+$/;
-      if (!fighterPort1 || !portRegex.test(fighterPort1)) {
-        alert('พอร์ตนักชก 1 ต้องอยู่ในรูปแบบ COM ตามด้วยตัวเลข (เช่น COM4)');
-        return;
-      }
-      if (!fighterPort2 || !portRegex.test(fighterPort2)) {
-        alert('พอร์ตนักชก 2 ต้องอยู่ในรูปแบบ COM ตามด้วยตัวเลข (เช่น COM5)');
-        return;
-      }
-      if (fighterPort1 === fighterPort2) {
-        alert('COM Port ต้องไม่ซ้ำกัน');
-        return;
-      }
-      document.getElementById('connectBtn').disabled = true;
-      socket.emit('connectCOMPorts', { fighterPort1, fighterPort2 });
     }
-    function disconnectPorts() {
-      socket.emit('disconnectCOMPorts');
-      document.getElementById('comPort1').value = '';
-      document.getElementById('comPort2').value = '';
-      document.getElementById('connectBtn').disabled = false;
-      document.getElementById('com1-data').textContent = 'ข้อมูลเซ็นเซอร์: รอข้อมูล...';
-      document.getElementById('com2-data').textContent = 'ข้อมูลเซ็นเซอร์: รอข้อมูล...';
-    }
-    window.onload = () => {
-      socket.emit('requestConnectionStatus');
-    };
-  </script>
+  }
+
+  window.onload = () => {
+    socket.emit('requestConnectionStatus');
+  };
+</script>
 </body>
 </html>

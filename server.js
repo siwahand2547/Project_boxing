@@ -769,32 +769,80 @@ io.on('connection', (socket) => {
   socket.on('requestConnectionStatus', () => {
     updateConnectionStatus();
   });
-  socket.on('connectCOMPorts', async ({ fighterPort1, fighterPort2 }) => {
-    console.log(`🔌 รับคำสั่งเชื่อมต่อ: ${fighterPort1}, ${fighterPort2}`);
-    try {
-      const ports = await SerialPort.list();
-      const portNames = ports.map(p => p.path);
-      if (!portNames.includes(fighterPort1)) throw new Error(`พอร์ต ${fighterPort1} ไม่มี`);
-      if (!portNames.includes(fighterPort2)) throw new Error(`พอร์ต ${fighterPort2} ไม่มี`);
-      if (fighterPort1 === fighterPort2) throw new Error('พอร์ตต้องไม่ซ้ำ');
-      disconnectFighter1();
-      disconnectFighter2();
-      try {
-        portCOM1 = await setupFighter1(fighterPort1);
-        portCOM2 = await setupFighter2(fighterPort2);
-      } catch (err) {
-        console.error(`❌ ล้มเหลวในการเชื่อมต่อพอร์ต: ${err.message}`);
-        logger.error(`Failed to connect ports: ${err.message}`);
-        socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, err.message);
-        updateConnectionStatus();
-      }
-    } catch (err) {
-      console.error(`❌ ข้อผิดพลาดการเชื่อมต่อ: ${err.message}`);
-      logger.error(`Connection error: ${err.message}`);
-      socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, err.message);
-      updateConnectionStatus();
+  // เชื่อมต่อเฉพาะ Fighter 1
+socket.on('connectFighter1', async ({ port }) => {
+  console.log(`🔌 เชื่อมต่อเฉพาะ Fighter 1: ${port}`);
+  try {
+    const ports = await SerialPort.list();
+    if (!ports.some(p => p.path === port)) {
+      throw new Error(`พอร์ต ${port} ไม่พบ`);
     }
-  });
+    if (port === currentFighterPort2) {
+      throw new Error(`พอร์ต ${port} ถูกใช้โดย Fighter 2 อยู่`);
+    }
+
+    // ปิดเฉพาะ Fighter 1 ถ้ามีการเชื่อมต่อเก่า
+    disconnectFighter1();
+
+    portCOM1 = await setupFighter1(port);
+    currentFighterPort1 = port;
+    isCOM1Connected = true;
+
+    updateConnectionStatus();
+    socket.emit('connectionStatus', {
+      fighterPort1: currentFighterPort1,
+      fighterPort2: currentFighterPort2
+    });
+
+  } catch (err) {
+    console.error(`❌ เชื่อมต่อ Fighter 1 ล้มเหลว: ${err.message}`);
+    socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, `Fighter 1: ${err.message}`);
+    updateConnectionStatus();
+  }
+});
+
+// เชื่อมต่อเฉพาะ Fighter 2
+socket.on('connectFighter2', async ({ port }) => {
+  console.log(`🔌 เชื่อมต่อเฉพาะ Fighter 2: ${port}`);
+  try {
+    const ports = await SerialPort.list();
+    if (!ports.some(p => p.path === port)) {
+      throw new Error(`พอร์ต ${port} ไม่พบ`);
+    }
+    if (port === currentFighterPort1) {
+      throw new Error(`พอร์ต ${port} ถูกใช้โดย Fighter 1 อยู่`);
+    }
+
+    disconnectFighter2();
+
+    portCOM2 = await setupFighter2(port);
+    currentFighterPort2 = port;
+    isCOM2Connected = true;
+
+    updateConnectionStatus();
+    socket.emit('connectionStatus', {
+      fighterPort1: currentFighterPort1,
+      fighterPort2: currentFighterPort2
+    });
+
+  } catch (err) {
+    console.error(`❌ เชื่อมต่อ Fighter 2 ล้มเหลว: ${err.message}`);
+    socket.emit(SOCKET_EVENTS.CONNECTION_ERROR, `Fighter 2: ${err.message}`);
+    updateConnectionStatus();
+  }
+});
+
+// ปรับ event connectCOMPorts เดิมให้รองรับกรณีส่งทั้งคู่ (optional fallback)
+socket.on('connectCOMPorts', async ({ fighterPort1, fighterPort2 }) => {
+  // ถ้าส่งทั้งคู่ → เรียกแยกตามลำดับ (แต่แนะนำให้ client ใช้ event แยกแทน)
+  if (fighterPort1) {
+    socket.emit('connectFighter1', { port: fighterPort1 });
+  }
+  if (fighterPort2) {
+    socket.emit('connectFighter2', { port: fighterPort2 });
+  }
+});
+
   socket.on('disconnectCOMPorts', () => {
     console.log('🔌 ตัดการเชื่อมต่อทั้งหมด');
     disconnectFighter1();
@@ -805,6 +853,20 @@ io.on('connection', (socket) => {
   });
   socket.on('disconnect', () => {
     console.log('Client disconnected');
+  });
+
+  // ตัดการเชื่อมต่อเฉพาะ Fighter 1
+  socket.on('disconnectFighter1', () => {
+    console.log('🔌 รับคำสั่งตัดการเชื่อมต่อ Fighter 1');
+    disconnectFighter1();
+    updateConnectionStatus();
+  });
+
+  // ตัดการเชื่อมต่อเฉพาะ Fighter 2
+  socket.on('disconnectFighter2', () => {
+    console.log('🔌 รับคำสั่งตัดการเชื่อมต่อ Fighter 2');
+    disconnectFighter2();
+    updateConnectionStatus();
   });
 });
 
