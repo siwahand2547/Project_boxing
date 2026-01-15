@@ -2665,3 +2665,21 @@
 {"level":"error","message":"Port error Fighter2: Opening COM8: Unknown error code 121","timestamp":"2025-10-30T09:53:08.378Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-13T09:47:12.933Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-13T09:47:56.914Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 121","timestamp":"2026-01-13T10:21:01.655Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 121","timestamp":"2026-01-13T10:21:11.817Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 1231","timestamp":"2026-01-13T10:21:23.993Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 121","timestamp":"2026-01-13T10:21:37.025Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 1231","timestamp":"2026-01-13T10:22:24.222Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 121","timestamp":"2026-01-13T10:23:31.666Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 433","timestamp":"2026-01-13T10:26:48.363Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 433","timestamp":"2026-01-13T10:26:53.290Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-13T10:29:54.085Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 433","timestamp":"2026-01-13T11:13:14.755Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 433","timestamp":"2026-01-13T11:13:39.981Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-14T08:20:04.167Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 121","timestamp":"2026-01-15T08:41:21.001Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:00:33.246Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:00:41.544Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:09:24.503Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 121","timestamp":"2026-01-15T09:23:07.484Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:33:01.249Z"}

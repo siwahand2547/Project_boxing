@@ -260,6 +260,46 @@
       box-shadow: 0 0 15px rgba(0,0,0,0.7);
       margin: 10px;
       }
+      .timestamp-section {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.timestamp-group {
+  flex: 1 1 45%;
+  min-width: 280px;
+  background: #222;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+.timestamp-group h4 {
+  text-align: center;
+  margin: 0 0 12px 0;
+  color: #00d4ff;
+  font-size: 1.1em;
+}
+.timestamp-group button {
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.timestamp-group button:hover {
+  background: #0056b3;
+}
+.timestamp-group button.active {
+  background: #28a745;
+  transform: scale(1.03);
+}
   </style>
 </head>
 <body>
@@ -354,7 +394,7 @@
     <!-- ข้อมูลเรียลไทม์ -->
     <div class="fighter-info-container">
       <div class="realtime-container" id="realtime1">
-        <h2 id="fighter1-header">ข้อมูล Real-time นักชก 1 (กำลังโหลด...)</h2>
+        <h2 id="fighter1-header">ข้อมูล Real-time <%= fighter1.name %></h2>
         <table class="realtime-table" id="fighter1Table">
           <thead>
             <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr>
@@ -363,7 +403,7 @@
         </table>
       </div>
       <div class="realtime-container fighter2" id="realtime2">
-        <h2 id="fighter2-header">ข้อมูล Real-time นักชก 2 (กำลังโหลด...)</h2>
+        <h2 id="fighter2-header">ข้อมูล Real-time <%= fighter2.name %></h2>
         <table class="realtime-table" id="fighter2Table">
           <thead>
             <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr>
@@ -464,8 +504,8 @@
       status2.classList.toggle('connected', !!status.fighterPort2);
       status2.classList.toggle('disconnected', !status.fighterPort2);
 
-      document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time นักชก 1 (${status.fighterPort1 || 'ไม่ระบุ'})`;
-      document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time นักชก 2 (${status.fighterPort2 || 'ไม่ระบุ'})`;
+document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
+document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -752,66 +792,107 @@
       modal.style.display = 'none';
     }
 
-    function openClipModal(url1, url2, timehit, timestamps, round) {
-      const modal = document.getElementById('clipModal');
-      const video1 = document.getElementById('clipVideo1');
-      const video2 = document.getElementById('clipVideo2');
-      const timestampContainer = document.getElementById('timestampButtons');
-      modal.style.display = 'flex';
-      video1.style.display = url1 ? 'block' : 'none';
-      video2.style.display = url2 ? 'block' : 'none';
-      video1.pause();
-      video2.pause();
-      video1.removeAttribute('src');
-      video2.removeAttribute('src');
-      if (url1) video1.src = url1;
-      if (url2) video2.src = url2;
-      video1.load();
-      video2.load();
+function openClipModal(url1, url2, timehit, timestamps, round) {
+  console.log('openClipModal called!', { url1, url2, timehit, round, timestampsLength: timestamps?.length });
+  const decodedUrl1 = url1 ? decodeURIComponent(url1) : '';
+  const decodedUrl2 = url2 ? decodeURIComponent(url2) : '';
+  const decodedTimehit = decodeURIComponent(timehit || '00:00:00');
 
-      // สร้างปุ่ม timestamp
-      timestampContainer.innerHTML = `<h3>เหตุการณ์ในยกที่ ${round}</h3>`;
-      timestamps.forEach((ts, index) => {
-        const button = document.createElement('button');
-        button.textContent = `${ts.timehit} (${ts.detail})`;
-        button.onclick = () => {
-          let seconds = hhmmssToSeconds(ts.timehit) - 2;
-          seconds = Math.max(0, seconds);
-          if (url1) video1.currentTime = seconds;
-          if (url2) video2.currentTime = seconds;
-          video1.play().catch(err => console.error('Error playing video1:', err));
-          video2.play().catch(err => console.error('Error playing video2:', err));
-          // ตั้งสถานะ active
-          timestampContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-          button.classList.add('active');
-        };
-        timestampContainer.appendChild(button);
-      });
+  const modal = document.getElementById('clipModal');
+  const video1 = document.getElementById('clipVideo1');
+  const video2 = document.getElementById('clipVideo2');
+  const timestampContainer = document.getElementById('timestampButtons');
 
-      // ตั้งค่าเวลาเริ่มต้น
-      let seconds = hhmmssToSeconds(timehit) - 2;
-      seconds = Math.max(0, seconds);
-      function waitForVideoReady(video) {
-        return new Promise(resolve => {
-          if (!video.src) return resolve();
-          video.onloadedmetadata = () => {
-            video.currentTime = seconds;
-            video.onseeked = () => resolve();
-          };
-          video.onerror = () => resolve();
-        });
-      }
-      Promise.all([waitForVideoReady(video1), waitForVideoReady(video2)])
-        .then(() => {
-          if (url1) video1.play();
-          if (url2) video2.play();
-          // ตั้งปุ่ม active สำหรับ timehit เริ่มต้น
-          const initialButton = Array.from(timestampContainer.querySelectorAll('button'))
-            .find(btn => btn.textContent.includes(timehit));
-          if (initialButton) initialButton.classList.add('active');
-        })
-        .catch(err => console.error('Error playing videos:', err));
-    }
+  modal.style.display = 'flex';
+  video1.style.display = decodedUrl1 ? 'block' : 'none';
+  video2.style.display = decodedUrl2 ? 'block' : 'none';
+
+  video1.pause();
+  video2.pause();
+  video1.removeAttribute('src');
+  video2.removeAttribute('src');
+
+  if (decodedUrl1) video1.src = decodedUrl1;
+  if (decodedUrl2) video2.src = decodedUrl2;
+
+  video1.load();
+  video2.load();
+
+  // แยก timestamps เป็น 2 กลุ่มตามนักชก
+  const fighter1Timestamps = timestamps.filter(ts => 
+    ts.detail.includes('นักชก1') || ts.detail.includes('<%= fighter1.name %>')
+  );
+  const fighter2Timestamps = timestamps.filter(ts => 
+    ts.detail.includes('นักชก2') || ts.detail.includes('<%= fighter2.name %>')
+  );
+
+  // สร้าง HTML แยก 2 ฝั่งสวยงาม
+  let html = '<div class="timestamp-section">';
+  
+  // ฝั่งนักชก 1
+  html += '<div class="timestamp-group">';
+  html += `<h4><%= fighter1.name %></h4>`;
+  if (fighter1Timestamps.length === 0) {
+    html += '<p style="text-align:center; color:#888;">ไม่มีเหตุการณ์</p>';
+  } else {
+    fighter1Timestamps.forEach(ts => {
+      html += `<button onclick="seekTo('${ts.timehit}')">${ts.timehit} (${ts.detail})</button>`;
+    });
+  }
+  html += '</div>';
+
+  // ฝั่งนักชก 2
+  html += '<div class="timestamp-group">';
+  html += `<h4><%= fighter2.name %></h4>`;
+  if (fighter2Timestamps.length === 0) {
+    html += '<p style="text-align:center; color:#888;">ไม่มีเหตุการณ์</p>';
+  } else {
+    fighter2Timestamps.forEach(ts => {
+      html += `<button onclick="seekTo('${ts.timehit}')">${ts.timehit} (${ts.detail})</button>`;
+    });
+  }
+  html += '</div>';
+
+  html += '</div>';
+
+  timestampContainer.innerHTML = html;
+
+  // ตั้งเวลาเริ่มต้นเหมือนเดิม
+  let seconds = hhmmssToSeconds(decodedTimehit) - 2;
+  seconds = Math.max(0, seconds);
+
+  const waitForVideo = (video) => new Promise(resolve => {
+    if (!video.src) return resolve();
+    video.onloadedmetadata = () => {
+      video.currentTime = seconds;
+      video.onseeked = () => resolve();
+    };
+    video.onerror = () => resolve();
+  });
+
+  Promise.all([waitForVideo(video1), waitForVideo(video2)])
+    .then(() => {
+      if (decodedUrl1) video1.play().catch(err => console.error(err));
+      if (decodedUrl2) video2.play().catch(err => console.error(err));
+    });
+}
+
+// ฟังก์ชันใหม่สำหรับ seek วิดีโอเมื่อกดปุ่ม timestamp
+function seekTo(timehit) {
+  const seconds = hhmmssToSeconds(timehit) - 2;
+  const seekSec = Math.max(0, seconds);
+  const video1 = document.getElementById('clipVideo1');
+  const video2 = document.getElementById('clipVideo2');
+  
+  if (video1.src) {
+    video1.currentTime = seekSec;
+    video1.play().catch(e => console.error(e));
+  }
+  if (video2.src) {
+    video2.currentTime = seekSec;
+    video2.play().catch(e => console.error(e));
+  }
+}
 
     function closeClipModal() {
       const modal = document.getElementById('clipModal');
