@@ -2683,3 +2683,12 @@
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:09:24.503Z"}
 {"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 121","timestamp":"2026-01-15T09:23:07.484Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-15T09:33:01.249Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-15T09:43:55.039Z"}
+{"level":"error","message":"Error fetching match summary 15: Cannot read properties of undefined (reading 'total')","timestamp":"2026-01-15T09:55:05.265Z"}
+{"level":"error","message":"Error fetching match summary 15: Cannot read properties of undefined (reading 'total')","timestamp":"2026-01-15T09:55:08.225Z"}
+{"level":"error","message":"Error fetching match summary 15: Cannot read properties of undefined (reading 'total')","timestamp":"2026-01-15T09:55:11.322Z"}
+{"level":"error","message":"Error fetching match summary 15: Cannot read properties of undefined (reading 'total')","timestamp":"2026-01-15T10:15:32.360Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:24:20.845Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:25:25.434Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:27:36.722Z"}
+{"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:29:22.808Z"}
