@@ -637,17 +637,24 @@ document.getElementById('fighter2-header').textContent = `ข้อมูล Rea
     async function stopRecording() {
       const stopPromises = [];
       let blob1 = null, blob2 = null;
-      if (mediaRecorder1?.state !== 'inactive') {
-        stopPromises.push(new Promise(resolve => {
-          mediaRecorder1.onstop = () => resolve(new Blob(recordedChunks1, { type: 'video/webm' }));
-          mediaRecorder1.stop();
-        }));
+      // สำหรับ mediaRecorder1
+      if (mediaRecorder1?.state === 'recording' || mediaRecorder1?.state === 'paused') {
+        stopPromises.push(
+          new Promise(resolve => {
+            mediaRecorder1.onstop = () => resolve(new Blob(recordedChunks1, { type: 'video/webm' }));
+            mediaRecorder1.stop();
+          })
+        );
       }
-      if (mediaRecorder2?.state !== 'inactive') {
-        stopPromises.push(new Promise(resolve => {
-          mediaRecorder2.onstop = () => resolve(new Blob(recordedChunks2, { type: 'video/webm' }));
-          mediaRecorder2.stop();
-        }));
+
+      // สำหรับ mediaRecorder2 
+      if (mediaRecorder2?.state === 'recording' || mediaRecorder2?.state === 'paused') {
+        stopPromises.push(
+          new Promise(resolve => {
+            mediaRecorder2.onstop = () => resolve(new Blob(recordedChunks2, { type: 'video/webm' }));
+            mediaRecorder2.stop();
+          })
+        );
       }
 
       try {
@@ -698,7 +705,7 @@ document.getElementById('fighter2-header').textContent = `ข้อมูล Rea
           data: [...realtimeData]
         });
         roundNumber++;
-        renderFightRounds();
+        
         alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
         document.getElementById('stopBtn').disabled = true;
 
@@ -713,10 +720,12 @@ document.getElementById('fighter2-header').textContent = `ข้อมูล Rea
           cam2.srcObject.getTracks().forEach(track => track.stop());
           cam2.srcObject = null;
         }
+        window.location.reload();
       } catch (error) {
         console.error('เกิดข้อผิดพลาด:', error);
         alert('เกิดข้อผิดพลาด: ' + error.message);
       }
+      
     }
 
     function testCameras() {
@@ -917,35 +926,6 @@ function seekTo(timehit) {
       const m = Math.floor((sec % 3600) / 60);
       const s = Math.floor(sec % 60);
       return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
-    }
-
-    function renderFightRounds() {
-      const container = document.getElementById('fightRoundsContainer');
-      container.innerHTML = '';
-      roundsData.forEach(round => {
-        const table = document.createElement('table');
-        table.className = 'fight-rounds';
-        table.innerHTML = `
-          <thead>
-            <tr><th colspan="4">ข้อมูลการแข่งขันย้อนหลัง ยกที่ ${round.round - 1}</th></tr>
-            <tr><th>เวลาที่โดน</th><th>นักชก</th><th>รายละเอียด</th><th>คลิปวิดีโอ</th></tr>
-          </thead>
-          <tbody>
-            ${round.data.map(item => {
-              const [value, timehit] = item.value.split('|');
-              return `
-                <tr>
-                  <td>${timehit ? formatSeconds(timehit) : '-'}</td>
-                  <td>${item.label}</td>
-                  <td>${value}</td>
-                  <td><button class="watch-btn" onclick="openClipModal('${round.videoUrl}', '${round.videoUrl2}', '${timehit ? formatSeconds(timehit) : '0:00:00'}')">ดูคลิป</button></td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        `;
-        container.appendChild(table);
-      });
     }
 
     // สรุปผลการแข่งขัน
