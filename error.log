@@ -2692,3 +2692,10 @@
 {"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:25:25.434Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:27:36.722Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 15: ไม่มีข้อมูลให้บันทึก","timestamp":"2026-01-15T10:29:22.808Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM3: Unknown error code 121","timestamp":"2026-01-19T09:52:23.052Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-19T09:52:46.868Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-19T09:53:27.247Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM3: Unknown error code 121","timestamp":"2026-01-19T09:53:49.787Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-19T09:54:31.960Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM3: Unknown error code 121","timestamp":"2026-01-19T09:55:00.385Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-19T10:07:42.947Z"}
