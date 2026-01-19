@@ -1,292 +1,346 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ตารางการแข่งขัน</title>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <link rel="stylesheet" href="/styles.css">
+
+  <!-- Flatpickr -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
   <style>
+    :root {
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      --shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.1);
+      --table-even: #f9fafb;
+      --table-hover: #f1f5f9;
+    }
+
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121212;
-      color: #f0f0f0;
-      padding: 40px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       margin: 0;
+      padding: 2.5rem 1.5rem;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
     }
 
     h1 {
+      font-size: 2.25rem;
+      font-weight: 600;
+      color: #111827;
       text-align: center;
-      color: #fff;
-      margin-bottom: 30px;
-      text-shadow: 0 2px 4px #000;
+      margin: 0 0 2.5rem 0;
+    }
+
+    /* กลุ่มฟิลเตอร์ */
+    .filter-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow);
     }
 
     .filter-container {
-      text-align: center;
-      margin-bottom: 20px;
       display: flex;
-      gap: 10px;
-      justify-content: center;
       flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
     }
 
-    .filter-container input {
-      padding: 10px;
-      border: 1px solid #444;
-      border-radius: 4px;
-      background: #1e1e1e;
-      color: #fff;
-      font-size: 16px;
+    .filter-item {
+      flex: 1;
+      min-width: 220px;
     }
 
-    .filter-container input[type="text"] {
-      width: 300px;
+    .filter-item input,
+    .filter-item button {
+      width: 100%;
+      padding: 0.85rem 1.2rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+      transition: all 0.2s ease;
     }
 
-    .filter-container input::placeholder {
-      color: #aaa;
+    .filter-item input {
+      background: #ffffff;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
     }
 
-    .filter-container button {
-      padding: 10px 20px;
-      background: #00ffff;
-      color: #121212;
+    .filter-item input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    }
+
+    .filter-item button {
+      background: var(--accent);
+      color: white;
+      font-weight: 500;
       border: none;
-      border-radius: 4px;
       cursor: pointer;
-      font-size: 16px;
     }
 
-    .filter-container button:hover {
-      background: #fff;
+    .filter-item button:hover {
+      background: var(--accent-hover);
+    }
+
+    .clear-btn {
+      background: #6b7280 !important;
+    }
+
+    .clear-btn:hover {
+      background: #4b5563 !important;
     }
 
     .error-message {
-      color: #ff4444;
-      font-size: 14px;
-      margin-top: 5px;
+      color: var(--danger);
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+      text-align: center;
+      width: 100%;
       display: none;
-      width: 100%;
+    }
+
+    /* ตารางหลัก */
+   /* ตารางหลัก - ปรับใหม่ */
+.fight-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--card-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.fight-table th,
+.fight-table td {
+  padding: 1rem 1.2rem;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;          /* เส้นอ่อนมาก (เทาอ่อน) */
+  border-right: 1px solid #f0f0f0;           /* เส้นแนวตั้งอ่อน ๆ */
+}
+
+.fight-table th:last-child,
+.fight-table td:last-child {
+  border-right: none;                        /* ไม่ให้เส้นขวาสุดท้าย */
+}
+
+.fight-table th {
+  background: #374151;                       /* เข้มขึ้น (เทาเข้ม) */
+  color: #ffffff;                            /* ตัวอักษรขาวชัด */
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #4b5563;          /* เส้นใต้หัวตารางหนานิดเพื่อแยกชัด */
+}
+
+.fight-table tbody tr:nth-child(even) {
+  background: #f9fafb;                       /* เทาอ่อนสลับแถว */
+}
+
+.fight-table tbody tr:hover {
+  background: #f1f5f9;                       /* hover เบา ๆ */
+}
+
+.fight-table a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.fight-table a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.delete-btn {
+  background: #fef2f2;
+  color: var(--danger);
+  border: 1px solid #fecaca;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+}
+  
+
+    /* สถานะว่าง */
+    .empty-state {
       text-align: center;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      background-color: #1e1e1e;
-      border: 1px solid #444;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
-    }
-
-    th, td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #333;
-      text-align: center;
-    }
-
-    th {
-      background-color: #2c2c2c;
-      color: #00ffff;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    tr:nth-child(even) {
-      background-color: #181818;
-    }
-
-    tr:hover {
-      background-color: #292929;
-    }
-
-    a {
-      color: #00ffff;
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    a:hover {
-      color: #fff;
-    }
-
-    .bt-data {
-      display: flex;
-      gap: 20px;
-    }
-
-    .bt-box {
-      flex: 1;
-      background: #222;
-      padding: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-      font-family: monospace;
-      border: 1px solid #333;
-      border-radius: 5px;
-    }
-
-    .bt-port {
-      font-weight: bold;
-      color: #0f0;
-    }
-
-    .flatpickr-input {
-      width: 200px;
-      padding: 10px;
-      border: 1px solid #444;
-      border-radius: 4px;
-      background: #1e1e1e;
-      color: #fff;
-      font-size: 16px;
-    }
-
-    @media screen and (max-width: 768px) {
-      table, thead, tbody, th, td, tr {
-        display: block;
-      }
-
-      th {
-        display: none;
-      }
-
-      td {
-        border: none;
-        border-bottom: 1px solid #444;
-        position: relative;
-        padding-left: 50%;
-        text-align: left;
-      }
-
-      td::before {
-        content: attr(data-label);
-        position: absolute;
-        left: 10px;
-        top: 12px;
-        font-weight: bold;
-        color: #ccc;
-      }
-
-      .filter-container {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .filter-container input[type="text"],
-      .filter-container button,
-      .flatpickr-input {
-        width: 90%;
-      }
+      padding: 5rem 1rem;
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      margin-top: 2rem;
     }
   </style>
 </head>
 <body>
+
   <%- include('partials/navbar') %>
 
-  <h1>ตารางการแข่งขัน</h1>
+  <div class="container">
 
-  <div class="filter-container">
-    <input type="text" id="dateFilterSingle" placeholder="เลือกวันที่ (YYYY-MM-DD)">
-    <datalist id="availableDates">
-      <% availableDates.forEach(date => { %>
-        <option value="<%= date %>"></option>
-      <% }) %>
-    </datalist>
-    <input type="text" id="dateFilterMulti" placeholder="กรอกวันที่หลายวัน (YYYY-MM-DD, YYYY-MM-DD, ...)" oninput="filterTable()">
-    <button onclick="clearFilters()">Clear</button>
-    <div id="errorMessage" class="error-message">วันที่ไม่ถูกต้อง กรุณาใช้รูปแบบ YYYY-MM-DD</div>
+    <h1>ตารางการแข่งขัน</h1>
+
+    <!-- กลุ่มฟิลเตอร์ -->
+    <div class="filter-section">
+      <div class="filter-container">
+        <div class="filter-item">
+          <input 
+            type="text" 
+            id="dateFilterSingle" 
+            placeholder="เลือกวันที่ (YYYY-MM-DD)"
+          >
+        </div>
+
+        <div class="filter-item">
+          <input 
+            type="text" 
+            id="dateFilterMulti" 
+            placeholder="หลายวัน เช่น 2025-01-01,2025-01-02"
+            oninput="filterMatches()"
+          >
+        </div>
+
+        <div class="filter-item">
+          <button onclick="clearFilters()" class="clear-btn">ล้างตัวกรอง</button>
+        </div>
+      </div>
+
+      <div id="errorMessage" class="error-message">
+        วันที่ไม่ถูกต้อง กรุณาใช้รูปแบบ YYYY-MM-DD
+      </div>
+    </div>
+
+    <!-- ตาราง -->
+    <table class="fight-table" id="fightTable">
+      <thead>
+        <tr>
+          <th>คู่ที่</th>
+          <th>วันที่แข่งขัน</th>
+          <th>นักชกคนที่ 1</th>
+          <th>นักชกคนที่ 2</th>
+          <th>เปรียบเทียบข้อมูล</th>
+          <th>การจัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% fights.forEach(fight => { %>
+          <tr data-date="<%= fight.fightDate %>">
+            <td data-label="คู่ที่"><%= fight.matchCount %></td>
+            <td data-label="วันที่แข่งขัน"><%= fight.fightDate %></td>
+            <td data-label="นักชกคนที่ 1"><%= fight.fighter1 %></td>
+            <td data-label="นักชกคนที่ 2"><%= fight.fighter2 %></td>
+            <td data-label="เปรียบเทียบข้อมูล">
+              <a href="/fights/data/<%= fight.id %>">ดูข้อมูล</a>
+            </td>
+            <td data-label="การจัดการ">
+              <form method="POST" action="/match/delete/<%= fight.id %>" style="display:inline;">
+                <button 
+                  type="submit" 
+                  class="delete-btn"
+                  onclick="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบแมตช์นี้?')"
+                >
+                  ลบ
+                </button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <% if (fights.length === 0) { %>
+      <div class="empty-state">
+        <p>ยังไม่มีแมตช์การแข่งขันในระบบ</p>
+        <a href="/match/create" style="margin-top:1.5rem; display:inline-block;" class="action-btn" 
+           style="background:#eff6ff; color:var(--accent); border:1px solid #bfdbfe; padding:0.7rem 1.5rem; border-radius:6px; text-decoration:none;">
+          + สร้างการแข่งขันใหม่
+        </a>
+      </div>
+    <% } %>
+
   </div>
 
-  <table id="fightTable">
-    <thead>
-      <tr>
-        <th>คู่ที่</th>
-        <th>วันที่แข่งขัน</th>
-        <th>นักชกคนที่ 1</th>
-        <th>นักชกคนที่ 2</th>
-        <th>เปรียบเทียบข้อมูล</th>
-        <th>การจัดการ</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% fights.forEach(fight => { %>
-        <tr data-date="<%= fight.fightDate %>">
-          <td data-label="คู่ที่"><%= fight.matchCount %></td>
-          <td data-label="วันที่แข่งขัน"><%= fight.fightDate %></td>
-          <td data-label="นักชกคนที่ 1"><%= fight.fighter1 %></td>
-          <td data-label="นักชกคนที่ 2"><%= fight.fighter2 %></td>
-          <td data-label="เปรียบเทียบข้อมูล">
-            <a href="/fights/data/<%= fight.id %>">ดูข้อมูล</a>
-          </td>
-          <td data-label="ลบ">
-            <form method="POST" action="/match/delete/<%= fight.id %>" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบแมตช์นี้?');">
-              <button type="submit" style="background:#c00; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">
-                ลบ
-              </button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-
   <script>
-    // Initialize flatpickr for single date picker
+    // Flatpickr
     flatpickr('#dateFilterSingle', {
       dateFormat: 'Y-m-d',
       allowInput: true,
-      altInput: false,
-      enable: [<% availableDates.forEach((date, index) => { %>"<%= date %>"<% if (index < availableDates.length - 1) { %>,<% } %><% }) %>],
+      enable: [<% availableDates.forEach((date, i) => { %>"<%= date %>"<% if (i < availableDates.length-1) { %>, <% } %><% }) %>],
       onChange: function() {
-        filterTable();
+        filterMatches();
       }
     });
 
-    function filterTable() {
-      const singleDate = document.getElementById('dateFilterSingle').value;
+    function filterMatches() {
+      const singleDate = document.getElementById('dateFilterSingle').value.trim();
       const multiDate = document.getElementById('dateFilterMulti').value.trim();
-      const errorMessage = document.getElementById('errorMessage');
+      const errorMsg = document.getElementById('errorMessage');
       const rows = document.querySelectorAll('#fightTable tbody tr');
 
-      // ถ้าไม่มีการกรอกทั้งสองช่อง แสดงทุกแถว
-      if (!singleDate && !multiDate) {
-        rows.forEach(row => row.style.display = '');
-        errorMessage.style.display = 'none';
-        return;
-      }
-
-      // รวมวันที่จากทั้งสอง input
       let inputDates = [];
 
-      // จาก date picker (YYYY-MM-DD)
-      if (singleDate) {
-        inputDates.push(singleDate);
-      }
+      if (singleDate) inputDates.push(singleDate);
 
-      // จาก text input (YYYY-MM-DD)
       if (multiDate) {
         const dates = multiDate.split(',').map(d => d.trim()).filter(d => d);
         dates.forEach(date => {
-          const match = date.match(/^\d{4}-\d{2}-\d{2}$/);
-          if (match) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             inputDates.push(date);
           }
         });
       }
 
-      // แสดงข้อผิดพลาดถ้าไม่มีวันที่ถูกต้อง
       if (inputDates.length === 0 && multiDate) {
-        errorMessage.style.display = 'block';
+        errorMsg.style.display = 'block';
         rows.forEach(row => row.style.display = 'none');
         return;
       } else {
-        errorMessage.style.display = 'none';
+        errorMsg.style.display = 'none';
       }
 
-      // ฟิลเตอร์แถว
+      if (inputDates.length === 0) {
+        rows.forEach(row => row.style.display = '');
+        return;
+      }
+
       rows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
         row.style.display = inputDates.includes(rowDate) ? '' : 'none';
@@ -300,9 +354,9 @@
       document.querySelectorAll('#fightTable tbody tr').forEach(row => {
         row.style.display = '';
       });
-      // ล้าง flatpickr
       flatpickr('#dateFilterSingle').clear();
     }
   </script>
+
 </body>
 </html>

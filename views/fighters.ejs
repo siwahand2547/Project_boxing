@@ -1,189 +1,376 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <link rel="stylesheet" href="/styles.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>นักมวยทั้งหมด</title>
-  <style>
+  <link rel="stylesheet" href="/styles.css"> <!-- ถ้ามี global style -->
+
+  <!-- Google Fonts: Inter (มินิมอล ทันสมัย) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f8f9fa;              /* เทาอ่อนมาก มองสบายตา */
+    --card-bg: #ffffff;         /* การ์ดยังขาวสะอาด */
+    --text: #1f2937;            /* เทาเข้มเกือบดำ อ่านง่าย */
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 2.5rem 1.5rem;
+    line-height: 1.6;
+  }
+
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 2rem 0;
+  }
+
+  .header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.22s ease;
+    box-shadow: var(--shadow);
+  }
+
+  .add-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  /* Fighter Cards Grid */
+  .fighters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .fighter-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.25s ease;
+  }
+
+  .fighter-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .card-header {
+    padding: 1.25rem 1.5rem;
+    background: #f9fafb;          /* เทาอ่อนกว่านิดเดียว */
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .fighter-photo {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+  }
+
+  .no-photo {
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    font-style: italic;
+    border: 2px dashed #d1d5db;
+  }
+
+  .fighter-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .card-body {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .info-row {
+    display: flex;
+    margin-bottom: 0.85rem;
+    font-size: 0.95rem;
+  }
+
+  .info-label {
+    width: 110px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .info-value {
+    flex: 1;
+    color: #374151;
+  }
+
+  .card-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: #f9fafb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.85rem;
+  }
+
+  .action-btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+  }
+
+  .edit-btn {
+    background: #eff6ff;
+    color: var(--accent);
+    border: 1px solid #bfdbfe;
+  }
+
+  .edit-btn:hover {
+    background: #dbeafe;
+  }
+
+  .delete-btn {
+    background: #fef2f2;
+    color: var(--danger);
+    border: 1px solid #fecaca;
+  }
+
+  .delete-btn:hover {
+    background: #fee2e2;
+  }
+
+  /* ช่องค้นหา */
+  .search-container {
+    margin-bottom: 2rem;
+    max-width: 500px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 0.85rem 1.2rem;
+    font-size: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+
+  .search-input::placeholder {
+    color: #9ca3af;
+  }
+
+  .no-results {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    margin: 3rem 0;
+    display: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .fighters-grid {
+      grid-template-columns: 1fr;
+    }
     body {
-      background-color: #121212;
-      color: #eee;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 30px;
-      margin: 0;
+      padding: 1.5rem 1rem;
     }
     h1 {
-      color: #00ffff;
-      margin-bottom: 20px;
+      font-size: 1.875rem;
     }
-    a.add-fighter {
-      display: inline-block;
-      margin-bottom: 20px;
-      padding: 10px 18px;
-      background-color: #00bcd4;
-      color: #121212;
-      font-weight: bold;
-      border-radius: 6px;
-      text-decoration: none;
-      transition: background-color 0.3s ease;
-    }
-    a.add-fighter:hover {
-      background-color: #0097a7;
-      color: #fff;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #1e1e1e;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.7);
-    }
-    th, td {
-      padding: 12px 15px;
-      text-align: center;
-      border-bottom: 1px solid #333;
-      font-size: 16px;
-    }
-    th {
-      background-color: #222;
-      color: #00ffff;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    tbody tr:hover {
-      background-color: #333;
-    }
-    img {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 2px solid #555;
-    }
-    td.no-photo {
-      font-style: italic;
-      color: #888;
-    }
-    td.actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-td.actions a,
-td.actions form {
-  display: inline-flex;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: none;
-}
-
-td.actions a {
-  width: 80px;
-  height: 36px;
-  background-color: #00bcd4;
-  color: #121212;
-  font-weight: bold;
-  font-size: 14px;
-  border-radius: 5px;
-  text-decoration: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease;
-  user-select: none;
-}
-
-td.actions a:hover {
-  background-color: #0097a7;
-  color: #fff;
-}
-
-td.actions button {
-  width: 80px;
-  height: 36px;
-  background-color: #f44336;
-  color: white;
-  font-weight: bold;
-  font-size: 14px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease;
-  user-select: none;
-  padding: 0;  /* important to avoid button default padding */
-}
-
-td.actions button:hover {
-  background-color: #d32f2f;
-}
-
-
-
-  </style>
+  }
+</style>
 </head>
 <body>
 
   <%- include('partials/navbar') %>
 
-  <h1>นักมวยทั้งหมด</h1>
-  <a href="/fighters/add" class="add-fighter">➕ เพิ่มนักมวย</a>
+  <div class="container">
 
-  <table>
-    <thead>
-      <tr>
-        <th>รูป</th>
-        <th>ชื่อ</th>
-        <th>ค่าย</th>
-        <th>รุ่น</th>
-        <th>การจัดการ</th>
-      </tr>
-    </thead>
-    <tbody>
+  <!-- กลุ่มส่วนหัว -->
+  <div class="page-header">
+    <h1>นักมวยทั้งหมด</h1>
+    
+    <div class="header-controls">
+      <div class="search-container">
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="search-input" 
+          placeholder="ค้นหาชื่อนักมวย..." 
+          onkeyup="filterFighters()"
+        >
+      </div>
+      
+      <a href="/fighters/add" class="add-btn">+ เพิ่มนักมวย</a>
+    </div>
+  </div>
+
+  <!-- กลุ่มรายการ (มี heading เล็กบอกสถานะ) -->
+  <div class="list-section">
+    <h2 class="section-title">
+      รายชื่อนักมวย 
+      <span id="resultCount" style="color: var(--text-muted); font-size: 0.95rem; font-weight: normal;">
+        (<%= fighters.length %> คน)
+      </span>
+    </h2>
+
+    <div class="fighters-grid" id="fightersGrid">
       <% fighters.forEach(f => { %>
-        <tr>
-          <td>
+        <div class="fighter-card" data-name="<%= f.name.toLowerCase() %>">
+          <div class="card-header">
             <% if (f.photo) { %>
-              <img src="<%= f.photo %>" alt="Photo ของ <%= f.name %>">
+              <img src="<%= f.photo %>" alt="<%= f.name %>" class="fighter-photo">
             <% } else { %>
-              <span class="no-photo">ไม่มีรูป</span>
+              <div class="no-photo">ไม่มีรูป</div>
             <% } %>
-          </td>
-          <td><%= f.name %></td>
-          <td><%= f.camp %></td>
-          <td><%= f.weight_class %></td>
-          <td class="actions">
-  <a href="/fighters/edit/<%= f.id %>">✏️ แก้ไข</a>
-  <form method="POST" action="/fighters/delete/<%= f.id %>">
-  <button type="submit">🗑️ ลบ</button>
-</form>
-</td>
+            <div class="fighter-name"><%= f.name %></div>
+          </div>
 
-        </tr>
+          <div class="card-body">
+            <div class="info-row">
+              <div class="info-label">ค่าย</div>
+              <div class="info-value"><%= f.camp || '-' %></div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">รุ่นน้ำหนัก</div>
+              <div class="info-value"><%= f.weight_class || '-' %></div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <a href="/fighters/edit/<%= f.id %>" class="action-btn edit-btn">✏️ แก้ไข</a>
+            <form method="POST" action="/fighters/delete/<%= f.id %>" style="display:inline;">
+              <button 
+                type="submit" 
+                class="action-btn delete-btn"
+                onclick="return confirm('ยืนยันการลบ <%= f.name %> จริงหรือไม่?')"
+              >
+                🗑️ ลบ
+              </button>
+            </form>
+          </div>
+        </div>
       <% }) %>
-    </tbody>
-  </table>
+    </div>
+
+    <!-- ข้อความเมื่อค้นหาไม่เจอ -->
+    <div id="noResults" class="no-results">
+      ไม่พบนักมวยที่ตรงกับคำค้นหา<br>
+      ลองใช้ชื่ออื่น หรือตรวจสอบการสะกด
+    </div>
+
+    <!-- ข้อความเมื่อยังไม่มีข้อมูลเลย -->
+    <% if (fighters.length === 0) { %>
+      <div class="empty-state">
+        <p>ยังไม่มีข้อมูลนักมวยในระบบ</p>
+        <a href="/fighters/add" class="add-btn" style="margin-top: 1.5rem;">+ เพิ่มนักมวยคนแรก</a>
+      </div>
+    <% } %>
+  </div>
+
+</div>
 
   <script>
-  const urlParams = new URLSearchParams(window.location.search);
-  const error = urlParams.get('error');
+   function filterFighters() {
+  const input = document.getElementById('searchInput').value.toLowerCase().trim();
+  const cards = document.querySelectorAll('.fighter-card');
+  const noResults = document.getElementById('noResults');
+  const resultCount = document.getElementById('resultCount');
+  let visibleCount = 0;
 
-  if (error === 'hasMatch') {
-    alert('ไม่สามารถลบนักแข่งที่มีข้อมูลที่กำลังอยู่ตารางแข่งขันได้');
-  } else if (error === 'internal') {
-    alert('เกิดข้อผิดพลาดภายในระบบ');
-  } else if (error === 'delete') {
-    alert('ลบนักชกไม่สำเร็จ กรุณาลองใหม่');
-  }
-</script>
+  cards.forEach(card => {
+    const name = card.getAttribute('data-name');
+    if (name.includes(input)) {
+      card.style.display = 'block';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  // อัปเดตจำนวนที่แสดง
+  resultCount.textContent = `(${visibleCount} คน)`;
+
+  // แสดงข้อความไม่พบ
+  noResults.style.display = (visibleCount === 0 && input !== '') ? 'block' : 'none';
+}
+
+    // แจ้งเตือน error (เหมือนเดิม)
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+
+    if (error === 'hasMatch') {
+      alert('ไม่สามารถลบนักแข่งที่มีข้อมูลที่กำลังอยู่ตารางแข่งขันได้');
+    } else if (error === 'internal') {
+      alert('เกิดข้อผิดพลาดภายในระบบ');
+    } else if (error === 'delete') {
+      alert('ลบนักชกไม่สำเร็จ กรุณาลองใหม่');
+    }
+  </script>
+
+</body>
 
 </body>
 </html>

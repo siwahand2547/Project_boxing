@@ -1,32 +1,206 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-    <link rel="stylesheet" href="/styles.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>แก้ไขข้อมูลนักมวย</title>
+    <link rel="stylesheet" href="/styles.css">
+
+    <!-- Google Fonts: Inter (มินิมอล ทันสมัย) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 2.5rem 1.5rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #111827;
+            text-align: center;
+            margin: 0 0 2.5rem 0;
+        }
+
+        .edit-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            transition: all 0.25s ease;
+        }
+
+        .edit-card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #ffffff;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+        }
+
+        .current-photo {
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .current-photo img {
+            max-width: 180px;
+            height: auto;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .current-photo p {
+            margin: 0.5rem 0 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.9rem;
+            background: var(--accent);
+            color: white;
+            font-weight: 500;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+        }
+
+        .btn-submit:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59,130,246,0.25);
+        }
+
+        @media (max-width: 576px) {
+            body { padding: 1.5rem 1rem; }
+            .edit-card { padding: 1.5rem; }
+            h1 { font-size: 1.75rem; }
+        }
+        /* แก้สีตัวอักษรใน input ให้เป็นดำชัดเจนเสมอ (เพิ่มท้าย <style> เดิม) */
+input[type="text"],
+input[type="date"],
+input[type="file"],
+select {
+    color: #000000 !important;                    /* บังคับสีดำ */
+    -webkit-text-fill-color: #000000 !important;  /* แก้ autofill ใน Chrome/Safari */
+    background-color: #ffffff !important;
+}
+
+input[type="text"]::placeholder,
+input[type="date"]::placeholder {
+    color: #9ca3af !important;                    /* placeholder เทาอ่อน */
+}
+
+/* แก้ปัญหา autofill ทำให้ข้อความเป็นขาว */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-text-fill-color: #000000 !important;
+    background-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s; /* ป้องกัน flash */
+}
+    </style>
 </head>
 <body>
+
     <%- include('partials/navbar') %>
-<h1>แก้ไขข้อมูลนักมวย</h1>
-<form action="/fighters/edit/<%= fighter.id %>" method="POST" enctype="multipart/form-data">
-  <label>ชื่อ:</label>
-  <input type="text" name="name" value="<%= fighter.name %>" required><br>
-  <label>ค่าย:</label>
-  <input type="text" name="camp" value="<%= fighter.camp %>" required><br>
-  <label>รุ่น:</label>
-  <input type="text" name="weight_class" value="<%= fighter.weight_class %>" required><br>
-  
-  <% if (fighter.photo) { %>
-    <p>รูปภาพปัจจุบัน:</p>
-    <img src="<%= fighter.photo %>" width="150" alt="รูปนักมวย"><br>
-  <% } %>
 
-  <label>เปลี่ยนรูปภาพ (ถ้ามี):</label>
-  <input type="file" name="photo"><br>
+    <div class="container">
+        <h1>แก้ไขข้อมูลนักมวย</h1>
 
-  <button type="submit">อัปเดต</button>
-</form>
+        <div class="edit-card">
+            <form action="/fighters/edit/<%= fighter.id %>" method="POST" enctype="multipart/form-data">
+
+                <div class="form-group">
+                    <label for="name">ชื่อ:</label>
+                    <input type="text" id="name" name="name" value="<%= fighter.name %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="camp">ค่าย:</label>
+                    <input type="text" id="camp" name="camp" value="<%= fighter.camp %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="weight_class">รุ่นน้ำหนัก:</label>
+                    <input type="text" id="weight_class" name="weight_class" value="<%= fighter.weight_class %>" required>
+                </div>
+
+                <% if (fighter.photo) { %>
+                    <div class="current-photo">
+                        <p>รูปภาพปัจจุบัน:</p>
+                        <img src="<%= fighter.photo %>" alt="รูปนักมวย <%= fighter.name %>">
+                    </div>
+                <% } %>
+
+                <div class="form-group">
+                    <label for="photo">เปลี่ยนรูปภาพ (ถ้ามี):</label>
+                    <input type="file" id="photo" name="photo" accept="image/*">
+                </div>
+
+                <button type="submit" class="btn-submit">อัปเดตข้อมูล</button>
+            </form>
+        </div>
+    </div>
 
 </body>
 </html>

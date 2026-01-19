@@ -1,65 +1,94 @@
 <nav style="
-  background: #1e1e1e;
-  padding: 12px 20px;
+  background: #ffffff;
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: center;
-  gap: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  border-bottom: 1px solid #444;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  align-items: center;
+  gap: 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 ">
-  <a href="/fighters" style="
-    color: #eee;
-    text-decoration: none;
-    font-size: 15px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    white-space: nowrap;
-    transition: background 0.3s, color 0.3s;
-  " onmouseover="this.style.background='#333'; this.style.color='#00ffff';"
-     onmouseout="this.style.background=''; this.style.color='#eee';">
-    นักมวย
-  </a>
-
-  <a href="/match" style="
-    color: #eee;
-    text-decoration: none;
-    font-size: 15px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    white-space: nowrap;
-    transition: background 0.3s, color 0.3s;
-  " onmouseover="this.style.background='#333'; this.style.color='#00ffff';"
-     onmouseout="this.style.background=''; this.style.color='#eee';">
-    ตารางการแข่งขัน
-  </a>
-
-  <a href="/connectCOM" style="
-    color: #eee;
-    text-decoration: none;
-    font-size: 15px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #00ffff;
-    white-space: nowrap;
-    transition: background 0.3s, color 0.3s;
-  " onmouseover="this.style.background='#003333'; this.style.color='#00ffff';"
-     onmouseout="this.style.background=''; this.style.color='#eee';">
-    🔌 เชื่อมต่อ COM
-  </a>
-
-  <a href="/match/create" style="
-    color: #fff;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 15px;
-    padding: 6px 12px;
-    background: #007bff;
-    border-radius: 6px;
-    white-space: nowrap;
-    transition: background 0.3s ease;
-  " onmouseover="this.style.background='#0056b3';"
-     onmouseout="this.style.background='#007bff';">
-    ➕ สร้างการแข่งขัน
-  </a>
+  <a href="/fighters" class="nav-link">นักมวย</a>
+  <a href="/match" class="nav-link">ตารางการแข่งขัน</a>
+  <a href="/connectCOM" class="nav-link connect-link">🔌 เชื่อมต่อ COM</a>
+  <a href="/match/create" class="nav-btn">➕ สร้างการแข่งขัน</a>
 </nav>
+
+<style>
+  .nav-link {
+    color: #374151;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .nav-link:hover {
+    color: #111827;
+    background: #f3f4f6;
+  }
+
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 50%;
+    background: #3b82f6;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+  }
+
+  .nav-link:hover::after {
+    width: 60%;
+  }
+
+  .connect-link {
+    color: #2563eb;
+    font-weight: 500;
+  }
+
+  .connect-link:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .nav-btn {
+    background: #3b82f6;
+    color: white;
+    font-weight: 500;
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  }
+
+  .nav-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  }
+
+  @media (max-width: 768px) {
+    nav {
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1rem;
+      justify-content: flex-start;
+    }
+
+    .nav-link, .nav-btn {
+      padding: 0.5rem 0.9rem;
+      font-size: 0.95rem;
+    }
+  }
+</style>
