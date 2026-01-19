@@ -21,7 +21,7 @@
       margin-bottom: 20px;
     }
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
     table.fighter-info, table.realtime-table, table.fight-rounds {
@@ -188,7 +188,7 @@
       color: #007bff;
     }
     #summaryModal .modal-content {
-      max-width: 800px; /* ขยายขนาดตามคำถามก่อนหน้า */
+      max-width: 800px;
       width: 90%;
     }
     #summaryContent {
@@ -218,6 +218,66 @@
     }
     .connected { color: #00ff00; font-weight: bold; }
     .disconnected { color: #ff4444; font-weight: bold; }
+
+    /* เพิ่มเฉพาะส่วน layout ใหม่ */
+    .main-flex-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 25px;
+      margin-top: 20px;
+      align-items: flex-start;
+    }
+    .left-main-content {
+      flex: 3 1 750px;
+      min-width: 0;
+    }
+    .right-cameras-sidebar {
+      flex: 1 1 360px;
+      max-width: 380px;
+      position: sticky;
+      top: 30px;
+      align-self: flex-start;
+    }
+    .camera-box {
+      background: #181818;
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    .camera-box h3 {
+      margin: 0 0 12px;
+      color: #00d4ff;
+      text-align: center;
+      font-size: 1.1em;
+    }
+    .camera-item {
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .camera-item small {
+      display: block;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .camera-item video {
+      width: 100%;
+      height: auto;
+      max-height: 240px;
+      background: #000;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      .main-flex-layout {
+        flex-direction: column;
+      }
+      .right-cameras-sidebar {
+        position: static;
+        max-width: 500px;
+        margin: 0 auto 30px;
+      }
+    }
     @media (max-width: 768px) {
       .fighter-info, .realtime-container {
         flex: 1 1 100%;
@@ -259,52 +319,54 @@
       background: #000;
       box-shadow: 0 0 15px rgba(0,0,0,0.7);
       margin: 10px;
-      }
-      .timestamp-section {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-top: 20px;
-}
-.timestamp-group {
-  flex: 1 1 45%;
-  min-width: 280px;
-  background: #222;
-  border-radius: 10px;
-  padding: 15px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-}
-.timestamp-group h4 {
-  text-align: center;
-  margin: 0 0 12px 0;
-  color: #00d4ff;
-  font-size: 1.1em;
-}
-.timestamp-group button {
-  width: 100%;
-  margin: 6px 0;
-  padding: 10px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-.timestamp-group button:hover {
-  background: #0056b3;
-}
-.timestamp-group button.active {
-  background: #28a745;
-  transform: scale(1.03);
-}
+    }
+    .timestamp-section {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .timestamp-group {
+      flex: 1 1 45%;
+      min-width: 280px;
+      background: #222;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+    .timestamp-group h4 {
+      text-align: center;
+      margin: 0 0 12px 0;
+      color: #00d4ff;
+      font-size: 1.1em;
+    }
+    .timestamp-group button {
+      width: 100%;
+      margin: 6px 0;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .timestamp-group button:hover {
+      background: #0056b3;
+    }
+    .timestamp-group button.active {
+      background: #28a745;
+      transform: scale(1.03);
+    }
   </style>
 </head>
 <body>
+
   <div class="container">
-    <!-- Modal สำหรับทดสอบกล้อง -->
+
+    <!-- Modal เดิมทั้งหมด (เหมือนเดิม 100%) -->
     <div id="cameraTestModal">
       <div class="modal-content">
         <span class="modal-close" onclick="closeCameraTestModal()">&times;</span>
@@ -317,7 +379,6 @@
       </div>
     </div>
 
-    <!-- Modal สำหรับแสดงวิดีโอ 2 มุม -->
     <div id="clipModal">
       <div class="modal-content">
         <span class="modal-close" onclick="closeClipModal()">&times;</span>
@@ -331,13 +392,10 @@
             <video id="clipVideo2" muted preload="auto" controls style="display: none;"></video>
           </div>
         </div>
-        <div id="timestampButtons" style="margin-top: 15px; text-align: center;">
-          <!-- ปุ่ม timestamp จะถูกเพิ่มโดย JavaScript -->
-        </div>
+        <div id="timestampButtons" style="margin-top: 15px; text-align: center;"></div>
       </div>
     </div>
 
-    <!-- Modal สำหรับสรุปผล -->
     <div id="summaryModal">
       <div class="modal-content">
         <span class="modal-close" onclick="document.getElementById('summaryModal').style.display='none'">&times;</span>
@@ -348,130 +406,129 @@
     </div>
 
     <%- include('partials/navbar') %>
-    <h1>เปรียบเทียบนักชก (ID: <%= schedulefightId %>)</h1>
 
-    <!-- ข้อมูลนักชก -->
-    <div class="fighter-info-container">
-      <div class="fighter-info">
-        <table class="fighter-info">
-          <thead>
-            <tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><%= fighter1.name %></td>
-              <td><%= fighter1.camp %></td>
-              <td><%= fighter1.weight_class %></td>
-              <td><img src="<%= fighter1.photo || '/uploads/default.jpg' %>" alt="fighter1"></td>
-            </tr>
-          </tbody>
-        </table>
+    <div class="main-flex-layout">
+
+      <!-- ฝั่งซ้าย: ข้อมูลหลักทั้งหมด (เหมือนเดิม) -->
+      <div class="left-main-content">
+
+        <h1>เปรียบเทียบนักชก (ID: <%= schedulefightId %>)</h1>
+
+        <div class="fighter-info-container">
+          <div class="fighter-info">
+            <table class="fighter-info">
+              <thead><tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><%= fighter1.name %></td>
+                  <td><%= fighter1.camp %></td>
+                  <td><%= fighter1.weight_class %></td>
+                  <td><img src="<%= fighter1.photo || '/uploads/default.jpg' %>" alt="fighter1"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="fighter-info">
+            <table class="fighter-info">
+              <thead><tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><%= fighter2.name %></td>
+                  <td><%= fighter2.camp %></td>
+                  <td><%= fighter2.weight_class %></td>
+                  <td><img src="<%= fighter2.photo || '/uploads/default.jpg' %>" alt="fighter2"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p>
+          สถานะพอร์ต COM:<br />
+          ➤ <span id="fighter1-port">กำลังโหลด...</span>: <span id="fighter1-status" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
+          ➤ <span id="fighter2-port">กำลังโหลด...</span>: <span id="fighter2-status" class="disconnected">ยังไม่เชื่อมต่อ</span>
+        </p>
+
+        <div class="fighter-info-container">
+          <div class="realtime-container" id="realtime1">
+            <h2 id="fighter1-header">ข้อมูล Real-time <%= fighter1.name %></h2>
+            <table class="realtime-table" id="fighter1Table">
+              <thead><tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="realtime-container fighter2" id="realtime2">
+            <h2 id="fighter2-header">ข้อมูล Real-time <%= fighter2.name %></h2>
+            <table class="realtime-table" id="fighter2Table">
+              <thead><tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+          <button onclick="startRecording()">🎥 เริ่มการแข่งขัน</button>
+          <button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
+          <button id="btnSummary">📊 สรุปผลการแข่งขัน</button>
+          <button onclick="swapPorts()">🔄 สลับพอร์ตนักชก</button>
+          <button onclick="testCameras()">📸 ทดสอบกล้อง</button>
+        </div>
+
+        <h2>ข้อมูลการแข่งขันย้อนหลัง</h2>
+        <div id="fightRoundsContainer">
+          <% Object.keys(fightDataGrouped).forEach(round => { %>
+            <table class="fight-rounds">
+              <thead>
+                <tr><th colspan="5">ยกที่ <%= round %></th></tr>
+                <tr><th>เวลาที่โดน</th><th>ระยะเวลา</th><th>นักชก</th><th>รายละเอียด</th><th>คลิปกล้อง</th></tr>
+              </thead>
+              <tbody>
+                <% fightDataGrouped[round].forEach(item => { 
+                  const fighterName = fighterIdNameMap[item.fighterid] || item.fighterid;
+                  const timestamps = fightDataGrouped[round].map(t => ({ timehit: t.timehit, detail: t.fighterdetail }));
+                %>
+                  <tr>
+                    <td><%= item.timehit %></td>
+                    <td><%= item.time %></td>
+                    <td><%= fighterName %></td>
+                    <td><%= item.fighterdetail %></td>
+                    <td>
+                      <% if (item.clipdetail && item.clipdetail2) { %>
+                        <button class="watch-btn" onclick='openClipModal("<%= encodeURIComponent(item.clipdetail) %>", "<%= encodeURIComponent(item.clipdetail2) %>", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูคลิป 2 มุม</button>
+                      <% } else if (item.clipdetail) { %>
+                        <button class="watch-btn" onclick='openClipModal("<%= encodeURIComponent(item.clipdetail) %>", "", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 1</button>
+                      <% } else if (item.clipdetail2) { %>
+                        <button class="watch-btn" onclick='openClipModal("", "<%= encodeURIComponent(item.clipdetail2) %>", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 2</button>
+                      <% } else { %>
+                        ไม่มีคลิป
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          <% }) %>
+        </div>
+
       </div>
-      <div class="fighter-info">
-        <table class="fighter-info">
-          <thead>
-            <tr><th>ชื่อ</th><th>ค่าย</th><th>รุ่นน้ำหนัก</th><th>ภาพ</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><%= fighter2.name %></td>
-              <td><%= fighter2.camp %></td>
-              <td><%= fighter2.weight_class %></td>
-              <td><img src="<%= fighter2.photo || '/uploads/default.jpg' %>" alt="fighter2"></td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- ฝั่งขวา: กล้องเรียลไทม์ (sticky) -->
+      <div class="right-cameras-sidebar">
+        <div class="camera-box">
+          <h3>มุมมองเรียลไทม์</h3>
+          <div class="camera-item">
+            <small>กล้อง 1</small>
+            <video id="cam1" autoplay playsinline></video>
+          </div>
+          <div class="camera-item">
+            <small>กล้อง 2</small>
+            <video id="cam2" autoplay playsinline></video>
+          </div>
+        </div>
       </div>
+
     </div>
 
-    <!-- สถานะพอร์ต -->
-    <p>
-      สถานะพอร์ต COM:<br />
-      ➤ <span id="fighter1-port">กำลังโหลด...</span>: <span id="fighter1-status" class="disconnected">ยังไม่เชื่อมต่อ</span><br />
-      ➤ <span id="fighter2-port">กำลังโหลด...</span>: <span id="fighter2-status" class="disconnected">ยังไม่เชื่อมต่อ</span>
-    </p>
-
-    <!-- ข้อมูลเรียลไทม์ -->
-    <div class="fighter-info-container">
-      <div class="realtime-container" id="realtime1">
-        <h2 id="fighter1-header">ข้อมูล Real-time <%= fighter1.name %></h2>
-        <table class="realtime-table" id="fighter1Table">
-          <thead>
-            <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="realtime-container fighter2" id="realtime2">
-        <h2 id="fighter2-header">ข้อมูล Real-time <%= fighter2.name %></h2>
-        <table class="realtime-table" id="fighter2Table">
-          <thead>
-            <tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ปุ่มควบคุมการบันทึกและสลับพอร์ต -->
-    <div style="text-align: center; margin: 20px 0;">
-      <button onclick="startRecording()">🎥 เริ่มการแข่งขัน</button>
-      <button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
-      <button id="btnSummary">📊 สรุปผลการแข่งขัน</button>
-      <button onclick="swapPorts()">🔄 สลับพอร์ตนักชก</button>
-      <button onclick="testCameras()">📸 ทดสอบกล้อง</button>
-    </div>
-
-    <!-- ข้อมูลย้อนหลัง -->
-    <h2>ข้อมูลการแข่งขันย้อนหลัง</h2>
-    <div id="fightRoundsContainer">
-      <% Object.keys(fightDataGrouped).forEach(round => { %>
-        <table class="fight-rounds">
-          <thead>
-            <tr>
-              <th colspan="5">ยกที่ <%= round %></th>
-            </tr>
-            <tr>
-              <th>เวลาที่โดน</th>
-              <th>ระยะเวลา</th>
-              <th>นักชก</th>
-              <th>รายละเอียด</th>
-              <th>คลิปกล้อง</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% fightDataGrouped[round].forEach(item => { 
-              const fighterName = fighterIdNameMap[item.fighterid] || item.fighterid;
-              const timestamps = fightDataGrouped[round].map(t => ({ timehit: t.timehit, detail: t.fighterdetail }));
-            %>
-              <tr>
-                <td><%= item.timehit %></td>
-                <td><%= item.time %></td>
-                <td><%= fighterName %></td>
-                <td><%= item.fighterdetail %></td>
-                <td>
-                  <% if (item.clipdetail && item.clipdetail2) { %>
-                    <button class="watch-btn" onclick='openClipModal("<%= item.clipdetail %>", "<%= item.clipdetail2 %>", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูคลิป 2 มุม</button>
-                  <% } else if (item.clipdetail) { %>
-                    <button class="watch-btn" onclick='openClipModal("<%= item.clipdetail %>", "", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 1</button>
-                  <% } else if (item.clipdetail2) { %>
-                    <button class="watch-btn" onclick='openClipModal("", "<%= item.clipdetail2 %>", "<%= item.timehit %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 2</button>
-                  <% } else { %>
-                    ไม่มีคลิป
-                  <% } %>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% }) %>
-    </div>
-
-    <!-- กล้องเรียลไทม์ -->
-    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
-      <video id="cam1" autoplay playsinline width="320" height="240" style="background: #000; border-radius: 8px;"></video>
-      <video id="cam2" autoplay playsinline width="320" height="240" style="background: #000; border-radius: 8px;"></video>
-    </div>
   </div>
 
   <script>
