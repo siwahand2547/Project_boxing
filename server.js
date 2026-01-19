@@ -832,6 +832,39 @@ socket.on('connectFighter2', async ({ port }) => {
   }
 });
 
+// เพิ่มตรงนี้เลย หลังจาก socket.on('disconnectFighter2', ...) หรือตรงไหนก็ได้ใน block นี้
+socket.on('swapCOMPorts', () => {
+  console.log('🔄 รับคำสั่งสลับพอร์ตจาก client');
+
+  // สลับตัวแปรทั้งหมดที่เกี่ยวข้อง
+  const tempPort = portCOM1;
+  const tempConnected = isCOM1Connected;
+  const tempFighterPort = currentFighterPort1;
+
+  portCOM1 = portCOM2;
+  isCOM1Connected = isCOM2Connected;
+  currentFighterPort1 = currentFighterPort2;
+
+  portCOM2 = tempPort;
+  isCOM2Connected = tempConnected;
+  currentFighterPort2 = tempFighterPort;
+
+  // อัปเดตสถานะและแจ้ง client ทุกคน
+  updateConnectionStatus();
+
+  // Log เพื่อ debug
+  console.log('หลังสลับ:');
+  console.log('Fighter1 →', currentFighterPort1, isCOM1Connected);
+  console.log('Fighter2 →', currentFighterPort2, isCOM2Connected);
+
+  // ส่งแจ้งเตือน client (optional)
+  socket.emit('swapSuccess', { 
+    message: 'สลับพอร์ตเรียบร้อยแล้ว',
+    fighterPort1: currentFighterPort1,
+    fighterPort2: currentFighterPort2 
+  });
+});
+
 // ปรับ event connectCOMPorts เดิมให้รองรับกรณีส่งทั้งคู่ (optional fallback)
 socket.on('connectCOMPorts', async ({ fighterPort1, fighterPort2 }) => {
   // ถ้าส่งทั้งคู่ → เรียกแยกตามลำดับ (แต่แนะนำให้ client ใช้ event แยกแทน)

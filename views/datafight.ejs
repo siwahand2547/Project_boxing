@@ -977,6 +977,17 @@ function seekTo(timehit) {
         });
     });
 
+    function swapPorts() {
+    // ถามยืนยันก่อน
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะสลับพอร์ตนักชก?\n\nการสลับจะทำให้ข้อมูลเรียลไทม์และตารางเปลี่ยนฝั่งทันที")) {
+      return; // ถ้ากดยกเลิก → ไม่ทำอะไร
+    }
+
+    // ถ้ากดตกลง → ส่ง event ไป server
+    socket.emit('swapCOMPorts');
+    alert('สลับพอร์ตนักชกเรียบร้อย');
+  }
+
     socket.emit('requestConnectionStatus');
   </script>
 </body>
