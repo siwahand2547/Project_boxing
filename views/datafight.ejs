@@ -606,6 +606,9 @@ table.fight-rounds th,
     let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
     let testStream1 = null, testStream2 = null;
 
+    let stream1 = null;
+    let stream2 = null;
+
     socket.on('connect', () => {
       console.log('Socket.IO connected');
       socket.emit('requestConnectionStatus');
@@ -626,8 +629,8 @@ table.fight-rounds th,
       status2.classList.toggle('connected', !!status.fighterPort2);
       status2.classList.toggle('disconnected', !status.fighterPort2);
 
-document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
-document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
+    document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
+    document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -846,8 +849,8 @@ document.getElementById('fighter2-header').textContent = `ข้อมูล Rea
     document.getElementById('cam1').srcObject = null;
     document.getElementById('cam2').srcObject = null;
 
-    // Refresh เฉพาะส่วนข้อมูลย้อนหลัง
-    await refreshFightRounds();
+    // แค่ reload หน้าเว็บเฉย ๆ (ตามที่คุณต้องการ)
+    window.location.reload();
 
     // ล้าง realtime table
     realtimeData = [];
