@@ -2699,3 +2699,6 @@
 {"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-19T09:54:31.960Z"}
 {"level":"error","message":"Port error Fighter2: Opening COM3: Unknown error code 121","timestamp":"2026-01-19T09:55:00.385Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-19T10:07:42.947Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM3: Access denied","timestamp":"2026-01-20T10:49:47.690Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM3: Access denied","timestamp":"2026-01-20T10:49:50.206Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM6: Unknown error code 1231","timestamp":"2026-01-20T10:49:55.639Z"}
