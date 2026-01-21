@@ -2699,3 +2699,8 @@
 {"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-19T09:54:31.960Z"}
 {"level":"error","message":"Port error Fighter2: Opening COM3: Unknown error code 121","timestamp":"2026-01-19T09:55:00.385Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-19T10:07:42.947Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 121","timestamp":"2026-01-20T13:16:56.716Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM5: Unknown error code 121","timestamp":"2026-01-20T13:17:45.724Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:19.851Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:23.604Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:51.430Z"}
