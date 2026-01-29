@@ -2704,3 +2704,4 @@
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:19.851Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:23.604Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:51.430Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM3: Unknown error code 121","timestamp":"2026-01-21T07:13:07.401Z"}

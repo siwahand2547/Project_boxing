@@ -9,6 +9,13 @@ const fs = require('fs');
 const winston = require('winston');
 const config = require('./config');
 const db = require('./db');
+//-----------------Login-----------------------
+// 1. ประกาศตัวแปร session
+const session = require('express-session');
+const flash = require('connect-flash');
+const bcrypt = require('bcryptjs');
+const publicRoutes = ['/', '/login', '/register', '/logout'];
+//-----------------Login-----------------------
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +48,54 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+//-------------Login-----------------
+// 2. ตั้งค่า session
+app.use(session({
+  secret: 'your-secret-key-change-this-very-long-random-string', // เปลี่ยนเป็น string ยาว ๆ random
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 วัน
+    secure: false // เปลี่ยนเป็น true ถ้าใช้ https
+  }
+}));
+// 3. flash message
+app.use(flash());
+
+// 4. ทำให้ flash และ user สามารถใช้ได้ในทุก ejs
+app.use((req, res, next) => {
+  res.locals.success_msg = req.flash('success');
+  res.locals.error_msg   = req.flash('error');
+  res.locals.user        = req.session.user || null;   // เอาไว้เช็คว่าล็อกอินไหม
+  next();
+});
+
+// 5. (แนะนำ) สร้าง middleware ตรวจสอบว่าล็อกอินแล้วหรือยัง
+// Middleware ตรวจสอบ
+const isAuthenticated = (req, res, next) => {
+  if (req.session?.user) return next();
+  req.flash('error', 'กรุณาเข้าสู่ระบบก่อน');
+  res.redirect('/');
+};
+
+const isNotAuthenticated = (req, res, next) => {
+  if (!req.session?.user) return next();
+  res.redirect('/fighters');
+};
+
+// ใส่ global auth middleware ที่นี่ !!!
+app.use((req, res, next) => {
+  if (publicRoutes.includes(req.path)) {
+    return next();
+  }
+  return isAuthenticated(req, res, next);
+});
+
+// จากนั้นค่อยกำหนด route ตามปกติ
+app.get('/', isNotAuthenticated, (req, res) => res.render('index'));
+// ... route อื่น ๆ ตามเดิม
+//-------------Login-----------------
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -265,9 +320,100 @@ setInterval(() => {
   });
 }, INTERVAL_CHECK);
 
-// Routes
-app.get('/', (req, res) => res.redirect('/fighters'));
 
+
+//-------------------Login-------------
+// หน้า login (GET)
+app.get('/', isNotAuthenticated, (req, res) => {
+  res.render('index');
+});
+
+// หน้า register (GET)
+app.get('/register', isNotAuthenticated, (req, res) => {
+  res.render('register');
+});
+
+// จัดการ login (POST)
+app.post('/login', isNotAuthenticated, async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const [rows] = await db.pool.query('SELECT * FROM users WHERE username = ?', [username]);
+    if (rows.length === 0) {
+      req.flash('error', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      return res.redirect('/');
+    }
+
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      req.flash('error', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      return res.redirect('/');
+    }
+
+    // ล็อกอินสำเร็จ
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      full_name: user.full_name,
+      role: user.role
+    };
+
+    req.flash('success', `ยินดีต้อนรับ ${user.full_name}`);
+    res.redirect('/fighters'); // หรือหน้าที่ต้องการ
+
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+    res.redirect('/');
+  }
+});
+
+// จัดการ register (POST)
+app.post('/register', isNotAuthenticated, async (req, res) => {
+  const { full_name, username, password, password2 } = req.body;
+
+  if (password !== password2) {
+    req.flash('error', 'รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+    return res.redirect('/register');
+  }
+
+  if (password.length < 6) {
+    req.flash('error', 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+    return res.redirect('/register');
+  }
+
+  try {
+    const [existing] = await db.pool.query('SELECT id FROM users WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      req.flash('error', 'ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว');
+      return res.redirect('/register');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.pool.query(
+      'INSERT INTO users (username, password, full_name) VALUES (?, ?, ?)',
+      [username, hashedPassword, full_name]
+    );
+
+    req.flash('success', 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
+    res.redirect('/');
+
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'เกิดข้อผิดพลาดในการสมัคร');
+    res.redirect('/register');
+  }
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/');
+  });
+});
+//-------------------Login-------------
 app.get('/available-ports', async (req, res) => {
   try {
     const ports = await SerialPort.list();
@@ -280,11 +426,16 @@ app.get('/available-ports', async (req, res) => {
 
 // Fighters CRUD
 app.get('/fighters', async (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   try {
-    const [results] = await db.pool.query('SELECT * FROM fighters');
+    const [results] = await db.pool.query(
+      'SELECT * FROM fighters WHERE user_id = ? ORDER BY name',
+      [userId]
+    );
     res.render('fighters', { fighters: results });
   } catch (err) {
-    logger.error(`Error fetching fighters: ${err.message}`);
+    logger.error(`Error fetching fighters for user ${userId}: ${err.message}`);
     res.status(500).send('DB Error');
   }
 });
@@ -303,20 +454,34 @@ app.get('/fighters/edit/:id', async (req, res) => {
 });
 
 app.post('/fighters/delete/:id', async (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   const fighterId = req.params.id;
   let connection;
   try {
     connection = await db.pool.getConnection();
     await connection.beginTransaction();
-    const [checkResults] = await connection.query(
+
+    // เช็คว่าเป็นของ user นี้
+    const [check] = await connection.query(
+      'SELECT id FROM fighters WHERE id = ? AND user_id = ?',
+      [fighterId, userId]
+    );
+    if (check.length === 0) {
+      await connection.rollback();
+      return res.redirect('/fighters?error=noPermission');
+    }
+
+    const [hasMatch] = await connection.query(
       'SELECT COUNT(*) AS count FROM schedulefight WHERE fighterid_1 = ? OR fighterid_2 = ?',
       [fighterId, fighterId]
     );
-    if (checkResults[0].count > 0) {
+    if (hasMatch[0].count > 0) {
       await connection.rollback();
       return res.redirect('/fighters?error=hasMatch');
     }
-    await connection.query('DELETE FROM fighters WHERE id = ?', [fighterId]);
+
+    await connection.query('DELETE FROM fighters WHERE id = ? AND user_id = ?', [fighterId, userId]);
     await connection.commit();
     res.redirect('/fighters');
   } catch (err) {
@@ -329,33 +494,44 @@ app.post('/fighters/delete/:id', async (req, res) => {
 });
 
 app.post('/fighters/add', upload.single('photo'), async (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   const { name, camp, weight_class } = req.body;
   const photo = req.file ? '/uploads/' + req.file.filename : null;
   try {
     await db.pool.query(
-      'INSERT INTO fighters (name, camp, weight_class, photo) VALUES (?, ?, ?, ?)',
-      [name, camp, weight_class, photo]
+      'INSERT INTO fighters (name, camp, weight_class, photo, user_id) VALUES (?, ?, ?, ?, ?)',
+      [name, camp, weight_class, photo, userId]
     );
     res.redirect('/fighters');
   } catch (err) {
-    logger.error(`Error adding fighter: ${err.message}`);
+    logger.error(`Error adding fighter for user ${userId}: ${err.message}`);
     res.status(500).send('Insert error');
   }
 });
 
 app.post('/fighters/edit/:id', upload.single('photo'), async (req, res) => {
-  const { name, camp, weight_class } = req.body;
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   const fighterId = req.params.id;
+  const { name, camp, weight_class } = req.body;
+
   let connection;
   try {
     connection = await db.pool.getConnection();
     await connection.beginTransaction();
-    const [results] = await connection.query('SELECT photo FROM fighters WHERE id = ?', [fighterId]);
-    if (results.length === 0) {
+
+    // เช็คว่าเป็นของ user นี้จริง
+    const [check] = await connection.query(
+      'SELECT photo FROM fighters WHERE id = ? AND user_id = ?',
+      [fighterId, userId]
+    );
+    if (check.length === 0) {
       await connection.rollback();
-      return res.status(404).send('Not found');
+      return res.status(403).send('ไม่มีสิทธิ์แก้ไขนักมวยนี้');
     }
-    let oldPhoto = results[0].photo;
+
+    let oldPhoto = check[0].photo;
     let newPhoto = oldPhoto;
     if (req.file) {
       newPhoto = '/uploads/' + req.file.filename;
@@ -366,15 +542,17 @@ app.post('/fighters/edit/:id', upload.single('photo'), async (req, res) => {
         });
       }
     }
+
     await connection.query(
-      'UPDATE fighters SET name = ?, camp = ?, weight_class = ?, photo = ? WHERE id = ?',
-      [name, camp, weight_class, newPhoto, fighterId]
+      'UPDATE fighters SET name = ?, camp = ?, weight_class = ?, photo = ? WHERE id = ? AND user_id = ?',
+      [name, camp, weight_class, newPhoto, fighterId, userId]
     );
+
     await connection.commit();
     res.redirect('/fighters');
   } catch (err) {
     if (connection) await connection.rollback();
-    logger.error(`Error editing fighter ${fighterId}: ${err.message}`);
+    logger.error(`Error editing fighter ${fighterId} for user ${userId}: ${err.message}`);
     res.status(500).send('Update error');
   } finally {
     if (connection) connection.release();
@@ -439,6 +617,16 @@ app.post('/fights/delete/:id', async (req, res) => {
 
 // Fighter profile
 app.get('/fighters/profile/:id', async (req, res) => {
+  const scheduleId = req.params.id;
+  const userId = req.session.user.id;
+
+  const [check] = await db.pool.query(
+    'SELECT id FROM schedulefight WHERE id = ? AND user_id = ?',
+    [scheduleId, userId]
+  );
+  if (check.length === 0) {
+    return res.status(403).send('ไม่มีสิทธิ์เข้าถึงการแข่งขันนี้');
+  }
   const fighterId = req.params.id;
   const fighterQuery = 'SELECT * FROM fighters WHERE id = ?';
   const winQuery = `
@@ -475,32 +663,51 @@ app.get('/match/create', async (req, res) => {
 });
 
 app.post('/match/create', async (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   const { fighter1_id, fighter2_id, fight_date } = req.body;
-  if (!isCOM1Connected || !isCOM2Connected) {
-    return res.status(400).send('Bluetooth devices not connected');
-  }
+
+  // ควรเช็คว่า fighter1 และ fighter2 เป็นของ user นี้จริง
   try {
+    const [check1] = await db.pool.query(
+      'SELECT id FROM fighters WHERE id = ? AND user_id = ?',
+      [fighter1_id, userId]
+    );
+    const [check2] = await db.pool.query(
+      'SELECT id FROM fighters WHERE id = ? AND user_id = ?',
+      [fighter2_id, userId]
+    );
+    if (check1.length === 0 || check2.length === 0) {
+      return res.status(403).send('ไม่มีสิทธิ์ใช้ข้อมูลนักมวยนี้');
+    }
+
+    if (!isCOM1Connected || !isCOM2Connected) {
+      return res.status(400).send('Bluetooth devices not connected');
+    }
+
     await db.pool.query(
-      'INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date) VALUES (?, ?, ?)',
-      [fighter1_id, fighter2_id, fight_date]
+      'INSERT INTO schedulefight (fighterid_1, fighterid_2, fight_date, user_id) VALUES (?, ?, ?, ?)',
+      [fighter1_id, fighter2_id, fight_date, userId]
     );
     res.redirect('/match');
   } catch (err) {
-    logger.error(`Error creating match: ${err.message}`);
+    logger.error(`Error creating match for user ${userId}: ${err.message}`);
     res.status(500).send('Create match failed');
   }
 });
 
 app.get('/match', async (req, res) => {
+  if (!req.session.user) return res.redirect('/');
+  const userId = req.session.user.id;
   try {
-    // ดึงข้อมูลการแข่งขัน
     const [fights] = await db.pool.query(`
       SELECT s.id, s.fight_date, f1.name AS fighter1, f2.name AS fighter2
       FROM schedulefight s
       JOIN fighters f1 ON s.fighterid_1 = f1.id
       JOIN fighters f2 ON s.fighterid_2 = f2.id
+      WHERE s.user_id = ?
       ORDER BY s.fight_date ASC, s.id ASC
-    `);
+    `, [userId]);
 
     // ดึงวันที่ที่มีในฐานข้อมูล
     const [distinctDates] = await db.pool.query(`
@@ -526,14 +733,24 @@ app.get('/match', async (req, res) => {
     // แปลง distinctDates เป็น array ของ YYYY-MM-DD
     const availableDates = distinctDates.map(row => row.fight_date.toISOString().split('T')[0]);
 
-    res.render('matchSchedule', { fights: fightsWithCount, availableDates });
+res.render('matchSchedule', { fights: fightsWithCount, availableDates });
   } catch (err) {
-    logger.error(`Error fetching match schedule: ${err.message}`);
+    logger.error(`Error fetching match schedule for user ${userId}: ${err.message}`);
     res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลการแข่งขัน');
   }
 });
 
 app.get('/fights/data/:id', async (req, res) => {
+  const scheduleId = req.params.id;
+  const userId = req.session.user.id;
+
+  const [check] = await db.pool.query(
+    'SELECT id FROM schedulefight WHERE id = ? AND user_id = ?',
+    [scheduleId, userId]
+  );
+  if (check.length === 0) {
+    return res.status(403).send('ไม่มีสิทธิ์เข้าถึงการแข่งขันนี้');
+  }
   const id = req.params.id;
   const sqlSchedulefight = `
     SELECT s.id, s.fighterid_1, s.fighterid_2,
@@ -596,6 +813,16 @@ app.get('/fights/data/:id', async (req, res) => {
 });
 
 app.post('/match/summary', async (req, res) => {
+  const scheduleId = req.params.id;
+  const userId = req.session.user.id;
+
+  const [check] = await db.pool.query(
+    'SELECT id FROM schedulefight WHERE id = ? AND user_id = ?',
+    [scheduleId, userId]
+  );
+  if (check.length === 0) {
+    return res.status(403).send('ไม่มีสิทธิ์เข้าถึงการแข่งขันนี้');
+  }
   const { schedulefightId } = req.body;
   if (!Number.isInteger(Number(schedulefightId))) {
     return res.json({ success: false, message: 'schedulefightId ต้องเป็นตัวเลข' });
@@ -718,9 +945,10 @@ app.post('/datafight/save', async (req, res) => {
     if (insertData.length === 0) {
       throw new Error('ไม่มีข้อมูลให้บันทึก');
     }
+    // ใน transaction
     await connection.query(
-      'INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2) VALUES ?',
-      [insertData]
+      'INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2, user_id) VALUES ?',
+      [insertData.map(row => [...row, req.session.user.id])]
     );
     await connection.commit();
     console.log('✅ บันทึกข้อมูลสำเร็จ:', { affectedRows: insertData.length });

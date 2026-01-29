@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <!-- เหมือน index.ejs แต่เปลี่ยน title -->
+  <title>สมัครสมาชิก - ระบบจัดการแข่งมวย</title>
+  <!-- copy style และ bootstrap link มาทั้งหมด -->
+</head>
+<body class="d-flex align-items-center min-vh-100">
+
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-5">
+
+        <h2 class="text-center mb-4">สมัครสมาชิก</h2>
+
+        <% if (error_msg.length > 0) { %>
+          <div class="alert alert-danger"><%= error_msg %></div>
+        <% } %>
+
+        <div class="card shadow">
+          <div class="card-body p-4">
+            <form action="/register" method="POST">
+              <div class="mb-3">
+                <label class="form-label">ชื่อ-นามสกุล</label>
+                <input type="text" name="full_name" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">ชื่อผู้ใช้</label>
+                <input type="text" name="username" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">รหัสผ่าน</label>
+                <input type="password" name="password" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">ยืนยันรหัสผ่าน</label>
+                <input type="password" name="password2" class="form-control" required>
+              </div>
+              <button type="submit" class="btn btn-success w-100">สมัครสมาชิก</button>
+            </form>
+
+            <div class="text-center mt-3">
+              <a href="/" class="text-muted">มีบัญชีแล้ว? เข้าสู่ระบบ</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- bootstrap js -->
+</body>
+</html>

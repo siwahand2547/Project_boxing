@@ -2,9 +2,8 @@
   background: #ffffff;
   padding: 1rem 1.5rem;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 2rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   border-bottom: 1px solid #e5e7eb;
   position: sticky;
@@ -12,10 +11,23 @@
   z-index: 1000;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 ">
-  <a href="/fighters" class="nav-link">นักมวย</a>
-  <a href="/match" class="nav-link">ตารางการแข่งขัน</a>
-  <a href="/connectCOM" class="nav-link connect-link">🔌 เชื่อมต่อ COM</a>
-  <a href="/match/create" class="nav-btn">➕ สร้างการแข่งขัน</a>
+  <!-- ฝั่งซ้าย: ลิงก์หลัก + ปุ่มสร้าง -->
+  <div style="display: flex; align-items: center; gap: 2rem;">
+    <a href="/fighters" class="nav-link">นักมวย</a>
+    <a href="/match" class="nav-link">ตารางการแข่งขัน</a>
+    <a href="/connectCOM" class="nav-link connect-link">🔌 เชื่อมต่อ COM</a>
+    <a href="/match/create" class="nav-btn">➕ สร้างการแข่งขัน</a>
+  </div>
+
+  <!-- ฝั่งขวา: User info + Logout (แสดงเฉพาะตอนล็อกอิน) -->
+  <% if (user) { %>
+    <div style="display: flex; align-items: center; gap: 1.2rem;">
+      <span style="color: #4b5563; font-weight: 500;">
+        สวัสดี <%= user.full_name || user.username %>
+      </span>
+      <a href="/logout" class="nav-logout">ออกจากระบบ</a>
+    </div>
+  <% } %>
 </nav>
 
 <style>
@@ -78,15 +90,36 @@
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
   }
 
+  /* สไตล์ใหม่สำหรับ Logout */
+  .nav-logout {
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background: rgba(220, 38, 38, 0.05);
+  }
+
+  .nav-logout:hover {
+    background: rgba(220, 38, 38, 0.15);
+    color: #b91c1c;
+  }
+
   @media (max-width: 768px) {
     nav {
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 1rem;
       padding: 1rem;
-      justify-content: flex-start;
+      align-items: flex-start;
     }
 
-    .nav-link, .nav-btn {
+    nav > div:first-child {
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .nav-link, .nav-btn, .nav-logout {
       padding: 0.5rem 0.9rem;
       font-size: 0.95rem;
     }
