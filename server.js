@@ -958,34 +958,72 @@ app.get('/fights/data/:id', async (req, res) => {
 });
 
 app.post('/match/summary', async (req, res) => {
-  const scheduleId = req.params.id;
-  const userId = req.session.user.id;
+  console.log('=== DEBUG /match/summary ===');
+  console.log('req.body:', req.body);                     // ดูว่าส่ง schedulefightId มาจริงไหม
+  console.log('req.session.user.id:', req.session.user?.id);
 
-  const [check] = await db.pool.query(
-    'SELECT id FROM schedulefight WHERE id = ? AND user_id = ?',
-    [scheduleId, userId]
-  );
-  if (check.length === 0) {
-    return res.status(403).send('ไม่มีสิทธิ์เข้าถึงการแข่งขันนี้');
-  }
   const { schedulefightId } = req.body;
-  if (!Number.isInteger(Number(schedulefightId))) {
-    return res.json({ success: false, message: 'schedulefightId ต้องเป็นตัวเลข' });
+
+  // ตรวจ ID จาก body (ไม่ใช้ req.params.id)
+  if (!schedulefightId || isNaN(Number(schedulefightId))) {
+    console.log('Invalid schedulefightId:', schedulefightId);
+    return res.status(400).json({ 
+      success: false, 
+      message: 'schedulefightId ไม่ถูกต้องหรือหายไป' 
+    });
   }
-  const sql = `
-    SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
-    FROM datafight
-    WHERE schedulefight_id = ?
-    ORDER BY round ASC, id ASC`;
+
+  const userId = req.session.user?.id;
+
+  if (!userId) {
+    console.log('No user session');
+    return res.status(401).json({ 
+      success: false, 
+      message: 'กรุณาเข้าสู่ระบบก่อน' 
+    });
+  }
+
   try {
+    // เช็คสิทธิ์ด้วย schedulefightId จาก body
+    const [check] = await db.pool.query(
+      'SELECT id, user_id FROM schedulefight WHERE id = ?',
+      [schedulefightId]
+    );
+
+    console.log('Query check result:', check);
+
+    if (check.length === 0 || check[0].user_id !== userId) {
+      console.log('403: ไม่ผ่านสิทธิ์', {
+        schedulefightId,
+        userId,
+        dbUserId: check[0]?.user_id || 'ไม่พบ'
+      });
+      return res.status(403).json({ 
+        success: false, 
+        message: 'ไม่มีสิทธิ์เข้าถึงการแข่งขันนี้' 
+      });
+    }
+
+    // ดึงข้อมูล datafight
+    const sql = `
+      SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+      FROM datafight
+      WHERE schedulefight_id = ?
+      ORDER BY round ASC, id ASC`;
     const [results] = await db.pool.query(sql, [schedulefightId]);
-    if (results.length === 0) return res.json({ success: false, message: 'ไม่มีข้อมูลการแข่งขัน' });
+
+    if (results.length === 0) {
+      return res.json({ success: false, message: 'ไม่มีข้อมูลการแข่งขัน' });
+    }
+
     const fighterIds = [...new Set(results.map(r => r.fighterid))];
     const [fighters] = await db.pool.query('SELECT id, name FROM fighters WHERE id IN (?)', [fighterIds]);
     const fighterMap = {};
     fighters.forEach(f => fighterMap[f.id] = f.name);
+
     const summaryByRound = [];
     const rounds = [...new Set(results.map(r => r.round))];
+
     rounds.forEach(round => {
       const roundData = results.filter(r => r.round === round);
       const scores = {};
@@ -994,6 +1032,7 @@ app.post('/match/summary', async (req, res) => {
         scores[fid] = { body: 0, head: 0, fall: 0, total: 0 };
         details[fid] = { bodyHits: [], headHits: [], fallHits: [] };
       });
+
       roundData.forEach(r => {
         const fid = r.fighterid;
         if (r.fighterdetail.includes('fall')) {
@@ -1011,9 +1050,11 @@ app.post('/match/summary', async (req, res) => {
           details[fid].bodyHits.push(r.fighterdetail);
         }
       });
+
       const [fighter1Id, fighter2Id] = fighterIds;
       const winnerId = scores[fighter1Id].total > scores[fighter2Id].total ? fighter1Id :
                        scores[fighter2Id].total > scores[fighter1Id].total ? fighter2Id : null;
+
       summaryByRound.push({
         round,
         scores: {
@@ -1027,15 +1068,17 @@ app.post('/match/summary', async (req, res) => {
         winnerId
       });
     });
-    // Calculate overall winner
+
     let winCount = {};
     fighterIds.forEach(fid => winCount[fid] = 0);
     summaryByRound.forEach(r => {
       if (r.winnerId) winCount[r.winnerId]++;
     });
+
     const [fid1, fid2] = fighterIds;
     const overallWinnerId = winCount[fid1] > winCount[fid2] ? fid1 :
                             winCount[fid2] > winCount[fid1] ? fid2 : null;
+
     res.json({
       success: true,
       summaryByRound,
@@ -1043,8 +1086,8 @@ app.post('/match/summary', async (req, res) => {
       overallWinnerId
     });
   } catch (err) {
-    logger.error(`Error fetching match summary ${schedulefightId}: ${err.message}`);
-    res.json({ success: false, message: 'ดึงข้อมูลล้มเหลว' });
+    console.error('Error in /match/summary:', err);
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
   }
 });
 

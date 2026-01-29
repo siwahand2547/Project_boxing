@@ -425,6 +425,16 @@ table.fight-rounds th,
     background: var(--success);
     transform: scale(1.03);
   }
+
+  #summaryContent table tbody tr:nth-child(even) {
+  background: var(--even-row); /* #f9fafb */
+}
+
+  #summaryContent table td, #summaryContent table th {
+    padding: 10px 12px;
+    text-align: center;
+    border: 1px solid var(--table-border);
+  }
 </style>
 </head>
 <body>
@@ -532,10 +542,10 @@ table.fight-rounds th,
         </div>
 
         <div style="text-align: center; margin: 20px 0;">
-          <button onclick="startRecording()">🎥 เริ่มการแข่งขัน</button>
+          <button onclick="startRecording()" id="startBtn" disabled>🎥 เริ่มการแข่งขัน (รอเชื่อมต่อ COM)</button>
           <button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
           <button id="btnSummary">📊 สรุปผลการแข่งขัน</button>
-          <button onclick="swapPorts()">🔄 สลับพอร์ตนักชก</button>
+          <button onclick="swapPorts()" id="swapBtn" disabled>🔄 สลับพอร์ตนักชก (รอเชื่อมต่อ COM)</button>
           <button onclick="testCameras()">📸 ทดสอบกล้อง</button>
         </div>
 
@@ -631,6 +641,8 @@ table.fight-rounds th,
 
     document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
     document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
+
+    updateStartButtonState();
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -654,6 +666,49 @@ table.fight-rounds th,
     socket.on('connectionError', (message) => {
       console.error('🚫 Connection error:', message);
       alert(message);
+    });
+
+    // ฟังก์ชันอัปเดตสถานะปุ่มทั้งหมด (เริ่ม + สลับ) ตาม COM
+    function updateControlButtonsState() {
+      const status1 = document.getElementById('fighter1-status');
+      const status2 = document.getElementById('fighter2-status');
+      const startBtn = document.getElementById('startBtn');
+      const swapBtn = document.getElementById('swapBtn');
+
+      if (!status1 || !status2) return;
+
+      // เชื่อมต่ออย่างน้อย 1 ฝั่ง = ใช้งานได้ทั้งสองปุ่ม
+      const atLeastOneConnected = 
+        status1.classList.contains('connected') || 
+        status2.classList.contains('connected');
+
+      // ปุ่มเริ่มการแข่งขัน
+      if (startBtn) {
+        startBtn.disabled = !atLeastOneConnected;
+        startBtn.textContent = atLeastOneConnected 
+          ? '🎥 เริ่มการแข่งขัน' 
+          : '🎥 เริ่มการแข่งขัน (รอเชื่อมต่อ COM)';
+        startBtn.title = atLeastOneConnected 
+          ? 'พร้อมเริ่มการแข่งขันแล้ว' 
+          : 'ต้องเชื่อมต่อ COM port อย่างน้อย 1 ฝั่งก่อน';
+      }
+
+      // ปุ่มสลับพอร์ตนักชก (เดียวกัน)
+      if (swapBtn) {
+        swapBtn.disabled = !atLeastOneConnected;
+        swapBtn.textContent = atLeastOneConnected 
+          ? '🔄 สลับพอร์ตนักชก' 
+          : '🔄 สลับพอร์ตนักชก (รอเชื่อมต่อ COM)';
+        swapBtn.title = atLeastOneConnected 
+          ? 'สลับพอร์ตนักชก 1 กับ 2' 
+          : 'ต้องเชื่อมต่อ COM port อย่างน้อย 1 ฝั่งก่อนถึงจะสลับได้';
+      }
+    }
+
+    // เรียกครั้งแรกตอนโหลดหน้า (เผื่อ socket ช้า)
+    window.addEventListener('DOMContentLoaded', () => {
+      socket.emit('requestConnectionStatus');
+      setTimeout(updateControlButtonsState, 800);
     });
 
     function swapPorts() {
@@ -690,30 +745,48 @@ table.fight-rounds th,
     }
 
     async function startRecording() {
+  if (startTime) {
+    alert('กำลังบันทึกอยู่แล้ว! กรุณากด "จบการแข่งขัน" ก่อน');
+    return;
+  }
+
   startTime = Date.now();
   recordedChunks1 = [];
   recordedChunks2 = [];
   realtimeData = [];
 
   try {
-    // ดึงรายการอุปกรณ์ทั้งหมด
+    // ดึงรายการอุปกรณ์
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoInputs = devices.filter(device => device.kind === 'videoinput');
 
-    console.log('พบกล้อง:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
+    console.log('พบกล้องก่อน permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
 
-    if (videoInputs.length === 0) {
-      alert('ไม่พบกล้องใด ๆ ในระบบ กรุณาเสียบกล้องแล้วลองใหม่');
-      return;
+    // ถ้ายังไม่เห็นกล้องเลย → ขออนุญาตก่อนเพื่อให้ enumerateDevices เห็นจริง
+    if (videoInputs.length === 0 || !videoInputs.some(d => d.deviceId && d.deviceId !== '')) {
+      const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      initialStream.getTracks().forEach(track => track.stop()); // ทดสอบแล้วปิดทันที
+
+      // อัปเดต devices หลัง permission
+      const refreshedDevices = await navigator.mediaDevices.enumerateDevices();
+      videoInputs.length = 0; // ล้าง array เดิม
+      videoInputs.push(...refreshedDevices.filter(d => d.kind === 'videoinput'));
+
+      console.log('พบกล้องหลัง permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
     }
 
-    // เปิดกล้องตัวที่ 1 (ตัวแรกในลิสต์)
+    if (videoInputs.length === 0) {
+      throw new Error('ไม่พบกล้องใด ๆ แม้หลังขออนุญาต');
+    }
+
+    // เปิดกล้อง 1 (ตัวแรก)
+    const deviceId1 = videoInputs[0].deviceId;
     stream1 = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: videoInputs[0].deviceId } },
-      audio: true
+      video: deviceId1 ? { deviceId: { exact: deviceId1 } } : true,
+      audio: false
     });
     document.getElementById('cam1').srcObject = stream1;
-    await document.getElementById('cam1').play();
+    await document.getElementById('cam1').play().catch(e => console.warn('เล่น cam1 ล้มเหลว:', e));
 
     mediaRecorder1 = new MediaRecorder(stream1);
     mediaRecorder1.ondataavailable = e => {
@@ -721,16 +794,17 @@ table.fight-rounds th,
     };
     mediaRecorder1.start();
 
-    // ถ้ามีกล้องตัวที่ 2 → เปิดด้วย
+    // เปิดกล้อง 2 ถ้ามี
     let hasSecondCamera = false;
     if (videoInputs.length >= 2) {
       try {
+        const deviceId2 = videoInputs[1].deviceId;
         stream2 = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: videoInputs[1].deviceId } },
-          audio: true
+          video: deviceId2 ? { deviceId: { exact: deviceId2 } } : true,
+          audio: false
         });
         document.getElementById('cam2').srcObject = stream2;
-        await document.getElementById('cam2').play();
+        await document.getElementById('cam2').play().catch(e => console.warn('เล่น cam2 ล้มเหลว:', e));
 
         mediaRecorder2 = new MediaRecorder(stream2);
         mediaRecorder2.ondataavailable = e => {
@@ -740,7 +814,7 @@ table.fight-rounds th,
 
         hasSecondCamera = true;
       } catch (err2) {
-        console.warn('เปิดกล้องตัวที่ 2 ล้มเหลว:', err2);
+        console.warn('เปิดกล้อง 2 ล้มเหลว:', err2);
       }
     }
 
@@ -751,14 +825,24 @@ table.fight-rounds th,
       : 'เริ่มบันทึกกล้องตัวที่ 1 (พบแค่ตัวเดียว)');
 
   } catch (err) {
-    console.error('เปิดกล้องล้มเหลว:', err);
-    if (err.name === 'NotAllowedError') {
-      alert('คุณยังไม่ได้อนุญาตให้เว็บเข้าถึงกล้อง กรุณาอนุญาตแล้วลองใหม่');
-    } else if (err.name === 'NotFoundError') {
-      alert('ไม่พบกล้องในระบบ กรุณาเสียบกล้องแล้วลองใหม่');
-    } else {
-      alert('เกิดข้อผิดพลาด: ' + err.message);
+    startTime = null;
+    console.error('เปิดกล้องหรือเริ่มบันทึกล้มเหลว:', err.name, err.message);
+
+    let msg = 'เกิดข้อผิดพลาดในการเปิดกล้อง: ' + err.message;
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg = 'คุณยังไม่ได้อนุญาตให้เว็บเข้าถึงกล้อง\nกรุณาอนุญาตใน popup ของเบราว์เซอร์ แล้วลองกดเริ่มใหม่';
+    } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+      msg = 'ไม่พบกล้องหรือไม่สามารถใช้กล้องที่ระบุได้\nกรุณาตรวจสอบว่ากล้องเสียบอยู่และไม่ได้ถูกใช้งานโดยโปรแกรมอื่น';
     }
+    alert(msg);
+
+    // ล้าง stream ที่อาจค้าง
+    [stream1, stream2].forEach(s => {
+      if (s) s.getTracks().forEach(track => track.stop());
+    });
+    stream1 = stream2 = null;
+    document.getElementById('cam1').srcObject = null;
+    document.getElementById('cam2').srcObject = null;
   }
 }
 
@@ -1071,53 +1155,99 @@ function seekTo(timehit) {
     }
 
     // สรุปผลการแข่งขัน
-    document.getElementById('btnSummary').addEventListener('click', () => {
-      document.getElementById('summaryContent').innerHTML = 'กำลังโหลดข้อมูล...';
-      fetch('/match/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedulefightId: <%= schedulefightId %> })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            let html = '<table style="width:100%; border-collapse:collapse; background:#222; border-radius:6px;">';
-            html += '<thead><tr style="background:#333;"><th>ยก</th><th>นักชก</th><th>ต่อยตัว (1 คะแนน)</th><th>ต่อยหัว (2 คะแนน)</th><th>ล้ม (3 คะแนน)</th><th>รวม</th><th>ผู้ชนะ</th></tr></thead><tbody>';
-            const f = data.fighters;
-            const fids = Object.keys(f);
-            data.summaryByRound.forEach(r => {
-              const s1 = r.scores[fids[0]];
-              const s2 = r.scores[fids[1]];
-              const winnerName = r.winnerId ? f[r.winnerId] : 'เสมอ';
-              html += `<tr><td rowspan="2" style="border:1px solid #444; padding:8px;">${r.round}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${f[fids[0]]}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s1.body}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s1.head}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s1.fall}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s1.total}</td>`;
-              html += `<td rowspan="2" style="border:1px solid #444; padding:8px;">${winnerName}</td></tr>`;
-              html += `<tr><td style="border:1px solid #444; padding:8px;">${f[fids[1]]}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s2.body}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s2.head}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s2.fall}</td>`;
-              html += `<td style="border:1px solid #444; padding:8px;">${s2.total}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            const win1 = data.summaryByRound.filter(r => r.winnerId === fids[0]).length;
-            const win2 = data.summaryByRound.filter(r => r.winnerId === fids[1]).length;
-            const finalWinnerText = data.overallWinnerId ? `🏆 <strong>ผู้ชนะรวม: ${f[data.overallWinnerId]}</strong>` :
-                                   `🤝 <strong>ผลการแข่งขันเสมอ</strong>`;
-            html += `<div style="margin-top:20px; font-size:1.2em; text-align:center;">${finalWinnerText}</div>`;
-            document.getElementById('summaryContent').innerHTML = html;
-          } else {
-            document.getElementById('summaryContent').innerHTML = `<p style="color:#ff4444;">เกิดข้อผิดพลาด: ${data.message}</p>`;
-          }
-          document.getElementById('summaryModal').style.display = 'flex';
-        })
-        .catch(err => {
-          document.getElementById('summaryContent').innerHTML = `<p style="color:#ff4444;">เกิดข้อผิดพลาด: ${err.message}</p>`;
+document.getElementById('btnSummary').addEventListener('click', () => {
+  const modal = document.getElementById('summaryModal');
+  const content = document.getElementById('summaryContent');
+
+  // เปิด modal + แสดง loading
+  content.innerHTML = '<p style="text-align:center; padding:40px 20px; color:#6b7280; font-size:1.1em;">กำลังโหลดสรุปผลการแข่งขัน...</p>';
+  modal.style.display = 'flex';
+
+  fetch('/match/summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schedulefightId: <%= schedulefightId %> })
+  })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
+    .then(data => {
+      if (data.success) {
+        let html = `
+          <table style="width:100%; border-collapse:collapse; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+            <thead>
+              <tr style="background:#3b82f6; color:white;">
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">ยก</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">นักชก</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">ต่อยตัว (1)</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">ต่อยหัว (2)</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">ล้ม (3)</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">รวม</th>
+                <th style="padding:12px; border:1px solid #2563eb; font-weight:600;">ผู้ชนะยก</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        const f = data.fighters;
+        const fids = Object.keys(f);
+
+        data.summaryByRound.forEach(r => {
+          const s1 = r.scores[fids[0]];
+          const s2 = r.scores[fids[1]];
+          const winnerName = r.winnerId ? f[r.winnerId] : 'เสมอ';
+
+          html += `
+            <tr style="background:#f8f9fa;">
+              <td rowspan="2" style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${r.round}</td>
+              <td style="padding:12px; border:1px solid #dee2e6;">${f[fids[0]]}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s1.body}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s1.head}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s1.fall}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; color:#3b82f6; border:1px solid #dee2e6;">${s1.total}</td>
+              <td rowspan="2" style="padding:12px; text-align:center; font-weight:bold; background:#eff6ff; color:#2563eb; border:1px solid #dee2e6;">${winnerName}</td>
+            </tr>
+            <tr style="background:#ffffff;">
+              <td style="padding:12px; border:1px solid #dee2e6;">${f[fids[1]]}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s2.body}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s2.head}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; border:1px solid #dee2e6;">${s2.fall}</td>
+              <td style="padding:12px; text-align:center; font-weight:bold; color:#3b82f6; border:1px solid #dee2e6;">${s2.total}</td>
+            </tr>
+          `;
         });
+
+        html += '</tbody></table>';
+
+        const win1 = data.summaryByRound.filter(r => r.winnerId === fids[0]).length;
+        const win2 = data.summaryByRound.filter(r => r.winnerId === fids[1]).length;
+        const finalWinnerText = data.overallWinnerId 
+          ? `🏆 <strong>ผู้ชนะรวม: ${f[data.overallWinnerId]} (${win1 > win2 ? 'ชนะ ' + win1 : win2 > win1 ? 'ชนะ ' + win2 : 'เสมอ'})</strong>` 
+          : `🤝 <strong>ผลการแข่งขันเสมอ</strong>`;
+
+        html += `
+          <div style="margin-top:20px; font-size:1.3em; text-align:center; padding:15px; background:#eff6ff; border-radius:8px; color:#2563eb; border:1px solid #bfdbfe;">
+            ${finalWinnerText}
+          </div>
+        `;
+
+        content.innerHTML = html;
+      } else {
+        content.innerHTML = `<p style="color:#ef4444; text-align:center; padding:40px 20px; font-size:1.1em;">
+          ${data.message || 'ไม่มีข้อมูลสรุปการแข่งขัน'}
+        </p>`;
+      }
+    })
+    .catch(err => {
+      content.innerHTML = `<p style="color:#ef4444; text-align:center; padding:40px 20px; font-size:1.1em;">
+        เกิดข้อผิดพลาด: ${err.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'}
+      </p>`;
+      console.error('Fetch error:', err);
     });
+});
 
     function swapPorts() {
     // ถามยืนยันก่อน
