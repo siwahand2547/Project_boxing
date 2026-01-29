@@ -257,7 +257,26 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    
     const socket = io();
+    const fighter1Select = document.getElementById('fighter1');
+  const fighter2Select = document.getElementById('fighter2');
+
+  fighter1Select.addEventListener('change', function() {
+    const selected = this.value;
+    Array.from(fighter2Select.options).forEach(opt => {
+      opt.disabled = (opt.value === selected && opt.value !== '');
+      opt.style.display = opt.disabled ? 'none' : '';
+    });
+  });
+
+  fighter2Select.addEventListener('change', function() {
+    const selected = this.value;
+    Array.from(fighter1Select.options).forEach(opt => {
+      opt.disabled = (opt.value === selected && opt.value !== '');
+      opt.style.display = opt.disabled ? 'none' : '';
+    });
+  });
 
     const updateStatus = ({ fighterPort1, fighterPort2 }) => {
       const fighter1Status = document.getElementById('fighter1-status');
@@ -289,6 +308,12 @@
     window.onload = () => {
       socket.emit('requestConnectionStatus');
     };
+    document.getElementById('matchForm').addEventListener('submit', function(e) {
+    if (fighter1Select.value === fighter2Select.value && fighter1Select.value !== '') {
+      e.preventDefault();
+      alert('กรุณาเลือกนักชกคนละคนกันนะครับ');
+    }
+  });
   </script>
 
 </body>
