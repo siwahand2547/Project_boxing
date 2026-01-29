@@ -2705,3 +2705,4 @@
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:23.604Z"}
 {"level":"error","message":"No data provided for datafight save","timestamp":"2026-01-20T13:22:51.430Z"}
 {"level":"error","message":"Port error Fighter1: Opening COM3: Unknown error code 121","timestamp":"2026-01-21T07:13:07.401Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 1231","timestamp":"2026-01-29T08:36:43.078Z"}

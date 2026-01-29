@@ -14,7 +14,19 @@ const db = require('./db');
 const session = require('express-session');
 const flash = require('connect-flash');
 const bcrypt = require('bcryptjs');
-const publicRoutes = ['/', '/login', '/register', '/logout'];
+const publicRoutes = [
+  '/',
+  '/login',
+  '/register',
+  '/logout',
+  '/forgot-password',
+  '/reset-password'  // ยังคงไว้ แต่เราจะเพิ่ม logic ด้านล่าง
+];
+
+//---------------resetpassword---------------
+const { sendResetPasswordEmail } = require('./utils/email');
+const crypto = require('crypto');
+//---------------resetpassword---------------
 //-----------------Login-----------------------
 
 const app = express();
@@ -63,12 +75,22 @@ app.use(session({
 // 3. flash message
 app.use(flash());
 
-// 4. ทำให้ flash และ user สามารถใช้ได้ในทุก ejs
+// 4. ทำให้ flash และ user สามารถใช้ได้ในทุก ejs (ย้ายมาอยู่ก่อน auth middleware)
 app.use((req, res, next) => {
-  res.locals.success_msg = req.flash('success');
-  res.locals.error_msg   = req.flash('error');
-  res.locals.user        = req.session.user || null;   // เอาไว้เช็คว่าล็อกอินไหม
+  res.locals.success_msg = req.flash('success')[0] || '';  // ใช้ [0] เพื่อให้เป็น string ไม่ใช่ array
+  res.locals.error_msg   = req.flash('error')[0] || '';
+  res.locals.user        = req.session.user || null;
   next();
+});
+// จากนั้นค่อยใส่ auth middleware
+app.use((req, res, next) => {
+  if (
+    publicRoutes.includes(req.path) ||
+    req.path.startsWith('/reset-password/')
+  ) {
+    return next();
+  }
+  return isAuthenticated(req, res, next);
 });
 
 // 5. (แนะนำ) สร้าง middleware ตรวจสอบว่าล็อกอินแล้วหรือยัง
@@ -84,16 +106,14 @@ const isNotAuthenticated = (req, res, next) => {
   res.redirect('/fighters');
 };
 
-// ใส่ global auth middleware ที่นี่ !!!
-app.use((req, res, next) => {
-  if (publicRoutes.includes(req.path)) {
-    return next();
-  }
-  return isAuthenticated(req, res, next);
-});
+
 
 // จากนั้นค่อยกำหนด route ตามปกติ
 app.get('/', isNotAuthenticated, (req, res) => res.render('index'));
+// หน้า Forgot Password
+app.get('/forgot-password', (req, res) => {
+  res.render('forgot-password');
+});
 // ... route อื่น ๆ ตามเดิม
 //-------------Login-----------------
 
@@ -371,7 +391,7 @@ app.post('/login', isNotAuthenticated, async (req, res) => {
 
 // จัดการ register (POST)
 app.post('/register', isNotAuthenticated, async (req, res) => {
-  const { full_name, username, password, password2 } = req.body;
+  const { full_name, username, email, password, password2 } = req.body;
 
   if (password !== password2) {
     req.flash('error', 'รหัสผ่านทั้งสองช่องไม่ตรงกัน');
@@ -383,23 +403,37 @@ app.post('/register', isNotAuthenticated, async (req, res) => {
     return res.redirect('/register');
   }
 
+  // ตรวจสอบความถูกต้องของ email (optional แต่แนะนำ)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    req.flash('error', 'รูปแบบอีเมลไม่ถูกต้อง');
+    return res.redirect('/register');
+  }
+
   try {
-    const [existing] = await db.pool.query('SELECT id FROM users WHERE username = ?', [username]);
-    if (existing.length > 0) {
+    // เช็ค username ซ้ำ
+    const [existingUser] = await db.pool.query('SELECT id FROM users WHERE username = ?', [username]);
+    if (existingUser.length > 0) {
       req.flash('error', 'ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว');
+      return res.redirect('/register');
+    }
+
+    // เช็ค email ซ้ำ
+    const [existingEmail] = await db.pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
+      req.flash('error', 'อีเมลนี้ถูกใช้งานแล้ว');
       return res.redirect('/register');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await db.pool.query(
-      'INSERT INTO users (username, password, full_name) VALUES (?, ?, ?)',
-      [username, hashedPassword, full_name]
+      'INSERT INTO users (username, password, full_name, email) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, full_name, email]
     );
 
     req.flash('success', 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
     res.redirect('/');
-
   } catch (err) {
     console.error(err);
     req.flash('error', 'เกิดข้อผิดพลาดในการสมัคร');
@@ -413,6 +447,106 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
   });
 });
+
+//-----------------reset password-------------
+// ส่งอีเมลรีเซ็ต
+app.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [users] = await db.pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (users.length === 0) {
+      req.flash('error', 'ไม่พบอีเมลนี้ในระบบ');
+      return res.redirect('/forgot-password');
+    }
+
+    const user = users[0];
+
+    // สร้าง token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 ชั่วโมง
+
+    await db.pool.query(
+      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
+      [resetToken, expires, user.id]
+    );
+
+    // ส่งอีเมล
+    await sendResetPasswordEmail(email, resetToken, req);
+
+    req.flash('success', 'ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณแล้ว (ตรวจสอบกล่องจดหมาย/สแปม)');
+    res.redirect('/forgot-password');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+    res.redirect('/forgot-password');
+  }
+});
+// หน้า Reset Password (จากลิงก์ในอีเมล)
+app.get('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const [users] = await db.pool.query(
+      'SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > NOW()',
+      [token]
+    );
+
+    if (users.length === 0) {
+      req.flash('error', 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว');
+      return res.redirect('/forgot-password');
+    }
+
+    res.render('reset-password', { token });
+  } catch (err) {
+    req.flash('error', 'เกิดข้อผิดพลาด');
+    res.redirect('/forgot-password');
+  }
+});
+
+// บันทึกรหัสผ่านใหม่
+app.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password, password2 } = req.body;
+
+  if (password !== password2) {
+    req.flash('error', 'รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+    return res.redirect(`/reset-password/${token}`);
+  }
+
+  if (password.length < 6) {
+    req.flash('error', 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+    return res.redirect(`/reset-password/${token}`);
+  }
+
+  try {
+    const [users] = await db.pool.query(
+      'SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > NOW()',
+      [token]
+    );
+
+    if (users.length === 0) {
+      req.flash('error', 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ');
+      return res.redirect('/forgot-password');
+    }
+
+    const user = users[0];
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.pool.query(
+      'UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?',
+      [hashedPassword, user.id]
+    );
+
+    req.flash('success', 'ตั้งรหัสผ่านใหม่สำเร็จแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่');
+    res.redirect('/');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'เกิดข้อผิดพลาด');
+    res.redirect(`/reset-password/${token}`);
+  }
+});
+//-----------------reset password-------------
 //-------------------Login-------------
 app.get('/available-ports', async (req, res) => {
   try {
