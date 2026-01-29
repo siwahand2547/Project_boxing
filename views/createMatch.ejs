@@ -225,23 +225,31 @@
         <input type="date" id="fight_date" name="fight_date" required />
       </div>
 
-      <div class="form-group">
-        <label for="fighter1">เลือกนักชกคนที่ 1</label>
-        <select id="fighter1" name="fighter1_id" required>
-          <% fighters.forEach(f => { %>
-            <option value="<%= f.id %>"><%= f.name %></option>
-          <% }) %>
-        </select>
-      </div>
+<div class="form-group">
+  <label for="fighter1">เลือกนักชกคนที่ 1 (ของคุณเท่านั้น)</label>
+  <select id="fighter1" name="fighter1_id" required>
+    <% if (fighters.length === 0) { %>
+      <option value="">ไม่มีนักมวยของคุณ กรุณาเพิ่มนักมวยก่อน</option>
+    <% } else { %>
+      <% fighters.forEach(f => { %>
+        <option value="<%= f.id %>"><%= f.name %></option>
+      <% }) %>
+    <% } %>
+  </select>
+</div>
 
-      <div class="form-group">
-        <label for="fighter2">เลือกนักชกคนที่ 2</label>
-        <select id="fighter2" name="fighter2_id" required>
-          <% fighters.forEach(f => { %>
-            <option value="<%= f.id %>"><%= f.name %></option>
-          <% }) %>
-        </select>
-      </div>
+<div class="form-group">
+  <label for="fighter2">เลือกนักชกคนที่ 2 (ของคุณเท่านั้น)</label>
+  <select id="fighter2" name="fighter2_id" required>
+    <% if (fighters.length === 0) { %>
+      <option value="">ไม่มีนักมวยของคุณ กรุณาเพิ่มนักมวยก่อน</option>
+    <% } else { %>
+      <% fighters.forEach(f => { %>
+        <option value="<%= f.id %>"><%= f.name %></option>
+      <% }) %>
+    <% } %>
+  </select>
+</div>
 
       <button type="submit" id="testBtn" disabled>👊 สร้างการแข่งขัน</button>
     </form>

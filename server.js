@@ -653,12 +653,23 @@ app.get('/fighters/profile/:id', async (req, res) => {
 
 // Match routes
 app.get('/match/create', async (req, res) => {
+  if (!req.session.user) {
+    req.flash('error', 'กรุณาเข้าสู่ระบบก่อน');
+    return res.redirect('/');
+  }
+
+  const userId = req.session.user.id;
+
   try {
-    const [fighters] = await db.pool.query('SELECT * FROM fighters');
+    const [fighters] = await db.pool.query(
+      'SELECT id, name FROM fighters WHERE user_id = ? ORDER BY name ASC',
+      [userId]
+    );
+
     res.render('createMatch', { fighters });
   } catch (err) {
-    logger.error(`Error fetching fighters for match creation: ${err.message}`);
-    res.status(500).send('DB error');
+    logger.error(`Error fetching fighters for match creation (user ${userId}): ${err.message}`);
+    res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลนักมวย');
   }
 });
 
