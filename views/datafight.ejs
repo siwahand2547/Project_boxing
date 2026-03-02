@@ -454,6 +454,17 @@ table.fight-rounds th,
       </div>
     </div>
 
+    <div id="cameraSelectorModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center;">
+      <div style="background:white; padding:20px; border-radius:12px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
+        <h2>เลือกกล้องสำหรับแต่ละช่อง</h2>
+        <div id="cameraList"></div>
+        <div style="margin-top:20px; text-align:right;">
+          <button onclick="closeCameraSelector()">ยกเลิก</button>
+          <button onclick="saveCameraSelection()" style="background:#3b82f6; color:white;">บันทึกการเลือก</button>
+        </div>
+      </div>
+    </div>
+
     <div id="clipModal">
       <div class="modal-content">
         <span class="modal-close" onclick="closeClipModal()">&times;</span>
@@ -656,6 +667,13 @@ table.fight-rounds th,
     let stream3 = null;
     let stream4 = null;
 
+    let selectedDeviceIds = {
+      cam1: null,
+      cam2: null,
+      cam3: null,
+      cam4: null
+    };
+
 
     socket.on('connect', () => {
       console.log('Socket.IO connected');
@@ -741,6 +759,7 @@ table.fight-rounds th,
           ? 'สลับพอร์ตนักชก 1 กับ 2' 
           : 'ต้องเชื่อมต่อ COM port อย่างน้อย 1 ฝั่งก่อนถึงจะสลับได้';
       }
+      document.getElementById('selectCamBtn').disabled = !atLeastOneConnected;
     }
 
     // เรียกครั้งแรกตอนโหลดหน้า (เผื่อ socket ช้า)
@@ -819,32 +838,47 @@ table.fight-rounds th,
       throw new Error('ไม่พบกล้องใด ๆ แม้หลังขออนุญาต');
     }
 
-    // -------------------------------
-    // กล้อง 1 (ตัวแรกเสมอ)
-    // -------------------------------
-    const deviceId1 = videoInputs[0].deviceId;
-    stream1 = await navigator.mediaDevices.getUserMedia({
-      video: deviceId1 ? { deviceId: { exact: deviceId1 } } : true,
-      audio: false
-    });
-    document.getElementById('cam1').srcObject = stream1;
-    await document.getElementById('cam1').play().catch(e => console.warn('เล่น cam1 ล้มเหลว:', e));
+        // -------------------------------
+    // กล้อง 1 (ตัวแรกเสมอ หรือตามที่เลือก)
+    let cameraCount = 0;
+    stream1 = null; mediaRecorder1 = null;
 
-    mediaRecorder1 = new MediaRecorder(stream1);
-    mediaRecorder1.ondataavailable = e => {
-      if (e.data.size > 0) recordedChunks1.push(e.data);
-    };
-    mediaRecorder1.start();
+    let deviceId1 = selectedDeviceIds.cam1;
+    if (!deviceId1 && videoInputs.length > 0) {
+      deviceId1 = videoInputs[0].deviceId;  // fallback เป็นตัวแรก
+    }
+
+    try {
+      stream1 = await navigator.mediaDevices.getUserMedia({
+        video: deviceId1 ? { deviceId: { exact: deviceId1 } } : true,
+        audio: false
+      });
+      document.getElementById('cam1').srcObject = stream1;
+      await document.getElementById('cam1').play().catch(e => console.warn('เล่น cam1 ล้มเหลว:', e));
+
+      mediaRecorder1 = new MediaRecorder(stream1);
+      mediaRecorder1.ondataavailable = e => {
+        if (e.data.size > 0) recordedChunks1.push(e.data);
+      };
+      mediaRecorder1.start();
+
+      cameraCount++;
+      console.log('เปิดกล้อง 1 สำเร็จ (deviceId:', deviceId1 || 'default', ')');
+    } catch (err1) {
+      console.warn('เปิดกล้อง 1 ล้มเหลว:', err1);
+    }
 
     // -------------------------------
     // กล้อง 2
-    // -------------------------------
-    let cameraCount = 1;
     stream2 = null; mediaRecorder2 = null;
 
-    if (videoInputs.length >= 2) {
+    if (videoInputs.length >= 2 || selectedDeviceIds.cam2) {
+      let deviceId2 = selectedDeviceIds.cam2;
+      if (!deviceId2 && videoInputs.length >= 2) {
+        deviceId2 = videoInputs[1].deviceId;  // fallback เป็นตัวที่ 2
+      }
+
       try {
-        const deviceId2 = videoInputs[1].deviceId;
         stream2 = await navigator.mediaDevices.getUserMedia({
           video: deviceId2 ? { deviceId: { exact: deviceId2 } } : true,
           audio: false
@@ -859,6 +893,7 @@ table.fight-rounds th,
         mediaRecorder2.start();
 
         cameraCount++;
+        console.log('เปิดกล้อง 2 สำเร็จ (deviceId:', deviceId2 || 'default', ')');
       } catch (err2) {
         console.warn('เปิดกล้อง 2 ล้มเหลว:', err2);
       }
@@ -866,12 +901,15 @@ table.fight-rounds th,
 
     // -------------------------------
     // กล้อง 3
-    // -------------------------------
     stream3 = null; mediaRecorder3 = null;
 
-    if (videoInputs.length >= 3) {
+    if (videoInputs.length >= 3 || selectedDeviceIds.cam3) {
+      let deviceId3 = selectedDeviceIds.cam3;
+      if (!deviceId3 && videoInputs.length >= 3) {
+        deviceId3 = videoInputs[2].deviceId;  // fallback เป็นตัวที่ 3
+      }
+
       try {
-        const deviceId3 = videoInputs[2].deviceId;
         stream3 = await navigator.mediaDevices.getUserMedia({
           video: deviceId3 ? { deviceId: { exact: deviceId3 } } : true,
           audio: false
@@ -886,6 +924,7 @@ table.fight-rounds th,
         mediaRecorder3.start();
 
         cameraCount++;
+        console.log('เปิดกล้อง 3 สำเร็จ (deviceId:', deviceId3 || 'default', ')');
       } catch (err3) {
         console.warn('เปิดกล้อง 3 ล้มเหลว:', err3);
       }
@@ -893,12 +932,15 @@ table.fight-rounds th,
 
     // -------------------------------
     // กล้อง 4
-    // -------------------------------
     stream4 = null; mediaRecorder4 = null;
 
-    if (videoInputs.length >= 4) {
+    if (videoInputs.length >= 4 || selectedDeviceIds.cam4) {
+      let deviceId4 = selectedDeviceIds.cam4;
+      if (!deviceId4 && videoInputs.length >= 4) {
+        deviceId4 = videoInputs[3].deviceId;  // fallback เป็นตัวที่ 4
+      }
+
       try {
-        const deviceId4 = videoInputs[3].deviceId;
         stream4 = await navigator.mediaDevices.getUserMedia({
           video: deviceId4 ? { deviceId: { exact: deviceId4 } } : true,
           audio: false
@@ -913,14 +955,16 @@ table.fight-rounds th,
         mediaRecorder4.start();
 
         cameraCount++;
+        console.log('เปิดกล้อง 4 สำเร็จ (deviceId:', deviceId4 || 'default', ')');
       } catch (err4) {
         console.warn('เปิดกล้อง 4 ล้มเหลว:', err4);
       }
     }
 
+    // อัปเดตข้อความแจ้งเตือน
     document.getElementById('stopBtn').disabled = false;
 
-    alert(`เริ่มบันทึกเรียบร้อยแล้ว (พบและเปิดได้ ${cameraCount} กล้อง)`);
+    alert(`เริ่มบันทึกเรียบร้อยแล้ว (เปิดได้ ${cameraCount} กล้อง)`);
 
   } catch (err) {
     startTime = null;
@@ -1441,6 +1485,59 @@ document.getElementById('btnSummary').addEventListener('click', () => {
     socket.emit('swapCOMPorts');
     alert('สลับพอร์ตนักชกเรียบร้อย');
   }
+
+  async function openCameraSelector() {
+  const modal = document.getElementById('cameraSelectorModal');
+  const listDiv = document.getElementById('cameraList');
+
+  listDiv.innerHTML = '<p>กำลังโหลดรายการกล้อง...</p>';
+
+  try {
+    // ขออนุญาตก่อนเพื่อให้เห็น label จริง
+    await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => {});
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+    if (videoInputs.length === 0) {
+      listDiv.innerHTML = '<p style="color:red;">ไม่พบกล้องใด ๆ</p>';
+      return;
+    }
+
+    let html = '';
+    ['cam1', 'cam2', 'cam3', 'cam4'].forEach((camId, index) => {
+      html += `<div style="margin:15px 0;">
+        <label><strong>ช่อง ${index+1} (${camId})</strong></label><br>
+        <select id="select-${camId}">
+          <option value="">-- ไม่เลือก / ใช้ค่าเริ่มต้น --</option>
+          ${videoInputs.map(dev => 
+            `<option value="${dev.deviceId}" ${selectedDeviceIds[camId] === dev.deviceId ? 'selected' : ''}>
+              ${dev.label || `กล้อง ${index+1} (${dev.deviceId.slice(0,8)}...`}
+            </option>`
+          ).join('')}
+        </select>
+      </div>`;
+    });
+
+    listDiv.innerHTML = html;
+    modal.style.display = 'flex';
+
+  } catch (err) {
+    listDiv.innerHTML = `<p style="color:red;">เกิดข้อผิดพลาด: ${err.message}</p>`;
+  }
+}
+
+function closeCameraSelector() {
+  document.getElementById('cameraSelectorModal').style.display = 'none';
+}
+
+function saveCameraSelection() {
+  ['cam1','cam2','cam3','cam4'].forEach(cam => {
+    const select = document.getElementById(`select-${cam}`);
+    selectedDeviceIds[cam] = select.value || null;
+  });
+  alert('บันทึกการเลือกกล้องเรียบร้อยแล้ว');
+  closeCameraSelector();
+}
 
     socket.emit('requestConnectionStatus');
   </script>
