@@ -466,6 +466,14 @@ table.fight-rounds th,
             <h3>กล้อง 2</h3>
             <video id="clipVideo2" muted preload="auto" controls style="display: none;"></video>
           </div>
+          <div style="text-align: center;">
+            <h3>กล้อง 3</h3>
+            <video id="clipVideo3" muted preload="auto" controls style="display: none;"></video>
+          </div>
+          <div style="text-align: center;">
+            <h3>กล้อง 4</h3>
+            <video id="clipVideo4" muted preload="auto" controls style="display: none;"></video>
+          </div>
         </div>
         <div id="timestampButtons" style="margin-top: 15px; text-align: center;"></div>
       </div>
@@ -568,16 +576,34 @@ table.fight-rounds th,
                     <td><%= fighterName %></td>
                     <td><%= item.fighterdetail %></td>
                     <td>
-                      <% if (item.clipdetail && item.clipdetail2) { %>
-                        <button class="watch-btn" onclick='openClipModal("<%= encodeURIComponent(item.clipdetail) %>", "<%= encodeURIComponent(item.clipdetail2) %>", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูคลิป 2 มุม</button>
-                      <% } else if (item.clipdetail) { %>
-                        <button class="watch-btn" onclick='openClipModal("<%= encodeURIComponent(item.clipdetail) %>", "", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 1</button>
-                      <% } else if (item.clipdetail2) { %>
-                        <button class="watch-btn" onclick='openClipModal("", "<%= encodeURIComponent(item.clipdetail2) %>", "<%= encodeURIComponent(item.timehit) %>", <%= JSON.stringify(timestamps) %>, "<%= round %>")'>ดูกล้อง 2</button>
-                      <% } else { %>
-                        ไม่มีคลิป
-                      <% } %>
-                    </td>
+  <%
+    // ตรวจสอบว่ามีคลิปกี่ตัว (เพื่อแสดงข้อความปุ่มให้สวย)
+    const clips = [
+      item.clipdetail,
+      item.clipdetail2,
+      item.clipdetail3,
+      item.clipdetail4
+    ].filter(Boolean); // กรองเฉพาะค่าที่ไม่ว่าง/null/undefined
+    const clipCount = clips.length;
+  %>
+
+  <% if (clipCount > 0) { %>
+    <button class="watch-btn"
+            onclick='openClipModal(
+              "<%= encodeURIComponent(item.clipdetail  || "") %>",
+              "<%= encodeURIComponent(item.clipdetail2 || "") %>",
+              "<%= encodeURIComponent(item.clipdetail3 || "") %>",
+              "<%= encodeURIComponent(item.clipdetail4 || "") %>",
+              "<%= encodeURIComponent(item.timehit) %>",
+              <%= JSON.stringify(timestamps) %>,
+              "<%= round %>"
+            )'>
+      ดูคลิป <%= clipCount %> มุม
+    </button>
+  <% } else { %>
+    ไม่มีคลิป
+  <% } %>
+</td>
                   </tr>
                 <% }) %>
               </tbody>
@@ -599,6 +625,14 @@ table.fight-rounds th,
             <small>กล้อง 2</small>
             <video id="cam2" autoplay playsinline></video>
           </div>
+          <div class="camera-item">
+            <small>กล้อง 3</small>
+            <video id="cam3" autoplay playsinline></video>
+          </div>
+          <div class="camera-item">
+            <small>กล้อง 4</small>
+            <video id="cam4" autoplay playsinline></video>
+          </div>
         </div>
       </div>
 
@@ -608,8 +642,8 @@ table.fight-rounds th,
 
   <script>
     const socket = io();
-    let mediaRecorder1, mediaRecorder2;
-    let recordedChunks1 = [], recordedChunks2 = [];
+    let mediaRecorder1, mediaRecorder2, ediaRecorder3, mediaRecorder4;
+    let recordedChunks1 = [], recordedChunks2 = [], recordedChunks3 = [], recordedChunks4 = [];
     let startTime = null;
     let realtimeData = [];
     let roundsData = [];
@@ -618,6 +652,9 @@ table.fight-rounds th,
 
     let stream1 = null;
     let stream2 = null;
+    let stream3 = null;
+    let stream4 = null;
+
 
     socket.on('connect', () => {
       console.log('Socket.IO connected');
@@ -642,7 +679,7 @@ table.fight-rounds th,
     document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
     document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
 
-    updateStartButtonState();
+    
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -753,6 +790,8 @@ table.fight-rounds th,
   startTime = Date.now();
   recordedChunks1 = [];
   recordedChunks2 = [];
+  recordedChunks3 = [];
+  recordedChunks4 = [];
   realtimeData = [];
 
   try {
@@ -762,14 +801,14 @@ table.fight-rounds th,
 
     console.log('พบกล้องก่อน permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
 
-    // ถ้ายังไม่เห็นกล้องเลย → ขออนุญาตก่อนเพื่อให้ enumerateDevices เห็นจริง
+    // ถ้ายังไม่เห็นกล้องเลย → ขออนุญาตก่อน
     if (videoInputs.length === 0 || !videoInputs.some(d => d.deviceId && d.deviceId !== '')) {
       const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      initialStream.getTracks().forEach(track => track.stop()); // ทดสอบแล้วปิดทันที
+      initialStream.getTracks().forEach(track => track.stop());
 
       // อัปเดต devices หลัง permission
       const refreshedDevices = await navigator.mediaDevices.enumerateDevices();
-      videoInputs.length = 0; // ล้าง array เดิม
+      videoInputs.length = 0;
       videoInputs.push(...refreshedDevices.filter(d => d.kind === 'videoinput'));
 
       console.log('พบกล้องหลัง permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
@@ -779,7 +818,9 @@ table.fight-rounds th,
       throw new Error('ไม่พบกล้องใด ๆ แม้หลังขออนุญาต');
     }
 
-    // เปิดกล้อง 1 (ตัวแรก)
+    // -------------------------------
+    // กล้อง 1 (ตัวแรกเสมอ)
+    // -------------------------------
     const deviceId1 = videoInputs[0].deviceId;
     stream1 = await navigator.mediaDevices.getUserMedia({
       video: deviceId1 ? { deviceId: { exact: deviceId1 } } : true,
@@ -794,8 +835,12 @@ table.fight-rounds th,
     };
     mediaRecorder1.start();
 
-    // เปิดกล้อง 2 ถ้ามี
-    let hasSecondCamera = false;
+    // -------------------------------
+    // กล้อง 2
+    // -------------------------------
+    let cameraCount = 1;
+    stream2 = null; mediaRecorder2 = null;
+
     if (videoInputs.length >= 2) {
       try {
         const deviceId2 = videoInputs[1].deviceId;
@@ -812,17 +857,69 @@ table.fight-rounds th,
         };
         mediaRecorder2.start();
 
-        hasSecondCamera = true;
+        cameraCount++;
       } catch (err2) {
         console.warn('เปิดกล้อง 2 ล้มเหลว:', err2);
       }
     }
 
+    // -------------------------------
+    // กล้อง 3
+    // -------------------------------
+    stream3 = null; mediaRecorder3 = null;
+
+    if (videoInputs.length >= 3) {
+      try {
+        const deviceId3 = videoInputs[2].deviceId;
+        stream3 = await navigator.mediaDevices.getUserMedia({
+          video: deviceId3 ? { deviceId: { exact: deviceId3 } } : true,
+          audio: false
+        });
+        document.getElementById('cam3').srcObject = stream3;
+        await document.getElementById('cam3').play().catch(e => console.warn('เล่น cam3 ล้มเหลว:', e));
+
+        mediaRecorder3 = new MediaRecorder(stream3);
+        mediaRecorder3.ondataavailable = e => {
+          if (e.data.size > 0) recordedChunks3.push(e.data);
+        };
+        mediaRecorder3.start();
+
+        cameraCount++;
+      } catch (err3) {
+        console.warn('เปิดกล้อง 3 ล้มเหลว:', err3);
+      }
+    }
+
+    // -------------------------------
+    // กล้อง 4
+    // -------------------------------
+    stream4 = null; mediaRecorder4 = null;
+
+    if (videoInputs.length >= 4) {
+      try {
+        const deviceId4 = videoInputs[3].deviceId;
+        stream4 = await navigator.mediaDevices.getUserMedia({
+          video: deviceId4 ? { deviceId: { exact: deviceId4 } } : true,
+          audio: false
+        });
+        document.getElementById('cam4').srcObject = stream4;
+        await document.getElementById('cam4').play().catch(e => console.warn('เล่น cam4 ล้มเหลว:', e));
+
+        mediaRecorder4 = new MediaRecorder(stream4);
+        mediaRecorder4.ondataavailable = e => {
+          if (e.data.size > 0) recordedChunks4.push(e.data);
+        };
+        mediaRecorder4.start();
+
+        cameraCount++;
+      } catch (err4) {
+        console.warn('เปิดกล้อง 4 ล้มเหลว:', err4);
+      }
+    }
+
     document.getElementById('stopBtn').disabled = false;
 
-    alert(hasSecondCamera 
-      ? 'เริ่มบันทึกทั้งสองกล้องเรียบร้อยแล้ว!' 
-      : 'เริ่มบันทึกกล้องตัวที่ 1 (พบแค่ตัวเดียว)');
+    alert(`เริ่มบันทึกเรียบร้อยแล้ว (พบและเปิดได้ ${cameraCount} กล้อง)`);
 
   } catch (err) {
     startTime = null;
@@ -836,20 +933,24 @@ table.fight-rounds th,
     }
     alert(msg);
 
-    // ล้าง stream ที่อาจค้าง
-    [stream1, stream2].forEach(s => {
+    // หยุดทุก stream ที่อาจเปิดค้างไว้
+    [stream1, stream2, stream3, stream4].forEach(s => {
       if (s) s.getTracks().forEach(track => track.stop());
     });
-    stream1 = stream2 = null;
-    document.getElementById('cam1').srcObject = null;
-    document.getElementById('cam2').srcObject = null;
+    stream1 = stream2 = stream3 = stream4 = null;
+
+    // ล้าง srcObject ทุกตัว
+    ['cam1', 'cam2', 'cam3', 'cam4'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.srcObject = null;
+    });
   }
 }
 
     async function stopRecording() {
   try {
     // หยุด recorder และเก็บ blob
-    let blob1 = null, blob2 = null;
+    let blob1 = null, blob2 = null, blob3 = null, blob4 = null;
 
     if (mediaRecorder1 && (mediaRecorder1.state === 'recording' || mediaRecorder1.state === 'paused')) {
       await new Promise(resolve => {
@@ -867,8 +968,24 @@ table.fight-rounds th,
       blob2 = new Blob(recordedChunks2, { type: 'video/webm' });
     }
 
+    if (mediaRecorder3 && (mediaRecorder3.state === 'recording' || mediaRecorder3.state === 'paused')) {
+      await new Promise(resolve => {
+        mediaRecorder3.onstop = () => resolve();
+        mediaRecorder3.stop();
+      });
+      blob3 = new Blob(recordedChunks3, { type: 'video/webm' });
+    }
+
+    if (mediaRecorder4 && (mediaRecorder4.state === 'recording' || mediaRecorder4.state === 'paused')) {
+      await new Promise(resolve => {
+        mediaRecorder4.onstop = () => resolve();
+        mediaRecorder4.stop();
+      });
+      blob4 = new Blob(recordedChunks4, { type: 'video/webm' });
+    }
+
     // อัปโหลดวิดีโอ (เหมือนเดิม)
-    let clipUrl1 = '', clipUrl2 = '';
+    let clipUrl1 = '', clipUrl2 = '' ,clipUrl3 = '',clipUrl4 = '';
 
     if (blob1?.size > 0) {
       const fd1 = new FormData();
@@ -886,6 +1003,22 @@ table.fight-rounds th,
       if (json2.success) clipUrl2 = json2.url;
     }
 
+    if (blob3?.size > 0) {
+      const fd3 = new FormData();
+      fd3.append('video', blob3, 'fight_cam3.webm');
+      const res3 = await fetch('/upload-video', { method: 'POST', body: fd3 });
+      const json3 = await res3.json();
+      if (json3.success) clipUrl3 = json3.url;
+    }
+
+    if (blob4?.size > 0) {
+      const fd4 = new FormData();
+      fd4.append('video', blob4, 'fight_cam4.webm');
+      const res4 = await fetch('/upload-video', { method: 'POST', body: fd4 });
+      const json4 = await res4.json();
+      if (json4.success) clipUrl4 = json4.url;
+    }
+
     // คำนวณเวลาและบันทึกข้อมูล (เหมือนเดิม)
     const durationMs = Date.now() - startTime;
     const totalSeconds = Math.floor(durationMs / 1000);
@@ -898,6 +1031,8 @@ table.fight-rounds th,
         schedulefight_id: "<%= schedulefightId %>",
         clip_url: clipUrl1,
         clip_url2: clipUrl2,
+        clip_url3: clipUrl3,
+        clip_url4: clipUrl4,
         time: fightDuration,
         data: realtimeData,
         round: roundNumber
@@ -912,11 +1047,13 @@ table.fight-rounds th,
       fightDuration,
       videoUrl: clipUrl1,
       videoUrl2: clipUrl2,
+      clip_url3: clipUrl3,
+      clip_url4: clipUrl4,
       data: [...realtimeData]
     });
     roundNumber++;
 
-    alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
+    alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 || clipUrl3 || clipUrl4 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
 
     document.getElementById('stopBtn').disabled = true;
 
@@ -929,9 +1066,19 @@ table.fight-rounds th,
       stream2.getTracks().forEach(track => track.stop());
       stream2 = null;
     }
+    if (stream3) {
+      stream3.getTracks().forEach(track => track.stop());
+      stream3 = null;
+    }
+    if (stream4) {
+      stream4.getTracks().forEach(track => track.stop());
+      stream4 = null;
+    }
 
     document.getElementById('cam1').srcObject = null;
     document.getElementById('cam2').srcObject = null;
+    document.getElementById('cam3').srcObject = null;
+    document.getElementById('cam4').srcObject = null;
 
     // แค่ reload หน้าเว็บเฉย ๆ (ตามที่คุณต้องการ)
     window.location.reload();
@@ -1027,31 +1174,45 @@ function closeCameraTestModal() {
   modal.style.display = 'none';
 }
 
-function openClipModal(url1, url2, timehit, timestamps, round) {
-  console.log('openClipModal called!', { url1, url2, timehit, round, timestampsLength: timestamps?.length });
+function openClipModal(url1, url2, url3, url4, timehit, timestamps, round) {
+  console.log('openClipModal called!', { url1, url2, url3, url4, timehit, round, timestampsLength: timestamps?.length });
   const decodedUrl1 = url1 ? decodeURIComponent(url1) : '';
   const decodedUrl2 = url2 ? decodeURIComponent(url2) : '';
+  const decodedUrl3 = url3 ? decodeURIComponent(url3) : '';
+  const decodedUrl4 = url4 ? decodeURIComponent(url4) : '';
   const decodedTimehit = decodeURIComponent(timehit || '00:00:00');
 
   const modal = document.getElementById('clipModal');
   const video1 = document.getElementById('clipVideo1');
   const video2 = document.getElementById('clipVideo2');
+  const video3 = document.getElementById('clipVideo3');
+  const video4 = document.getElementById('clipVideo4');
   const timestampContainer = document.getElementById('timestampButtons');
 
   modal.style.display = 'flex';
   video1.style.display = decodedUrl1 ? 'block' : 'none';
   video2.style.display = decodedUrl2 ? 'block' : 'none';
+  video3.style.display = decodedUrl3 ? 'block' : 'none';
+  video4.style.display = decodedUrl4 ? 'block' : 'none';
 
   video1.pause();
   video2.pause();
+  video3.pause();
+  video4.pause();
   video1.removeAttribute('src');
   video2.removeAttribute('src');
+  video3.removeAttribute('src');
+  video4.removeAttribute('src');
 
   if (decodedUrl1) video1.src = decodedUrl1;
   if (decodedUrl2) video2.src = decodedUrl2;
+  if (decodedUrl3) video2.src = decodedUrl3;
+  if (decodedUrl4) video2.src = decodedUrl4;
 
   video1.load();
   video2.load();
+  video3.load();
+  video4.load();
 
   // แยก timestamps เป็น 2 กลุ่มตามนักชก
   const fighter1Timestamps = timestamps.filter(ts => 
@@ -1105,10 +1266,12 @@ function openClipModal(url1, url2, timehit, timestamps, round) {
     video.onerror = () => resolve();
   });
 
-  Promise.all([waitForVideo(video1), waitForVideo(video2)])
+  Promise.all([waitForVideo(video1), waitForVideo(video2), waitForVideo(video3), waitForVideo(video4)])
     .then(() => {
       if (decodedUrl1) video1.play().catch(err => console.error(err));
       if (decodedUrl2) video2.play().catch(err => console.error(err));
+      if (decodedUrl3) video3.play().catch(err => console.error(err));
+      if (decodedUrl4) video4.play().catch(err => console.error(err));
     });
 }
 
@@ -1118,6 +1281,8 @@ function seekTo(timehit) {
   const seekSec = Math.max(0, seconds);
   const video1 = document.getElementById('clipVideo1');
   const video2 = document.getElementById('clipVideo2');
+  const video3 = document.getElementById('clipVideo3');
+  const video4 = document.getElementById('clipVideo4');
   
   if (video1.src) {
     video1.currentTime = seekSec;
@@ -1127,18 +1292,34 @@ function seekTo(timehit) {
     video2.currentTime = seekSec;
     video2.play().catch(e => console.error(e));
   }
+  if (video3.src) {
+    video3.currentTime = seekSec;
+    video3.play().catch(e => console.error(e));
+  }
+  if (video4.src) {
+    video4.currentTime = seekSec;
+    video4.play().catch(e => console.error(e));
+  }
 }
 
     function closeClipModal() {
       const modal = document.getElementById('clipModal');
       const video1 = document.getElementById('clipVideo1');
       const video2 = document.getElementById('clipVideo2');
+      const video3 = document.getElementById('clipVideo3');
+      const video4 = document.getElementById('clipVideo4');
       video1.pause();
       video2.pause();
+      video3.pause();
+      video4.pause();
       video1.removeAttribute('src');
       video2.removeAttribute('src');
+      video3.removeAttribute('src');
+      video4.removeAttribute('src');
       video1.load();
       video2.load();
+      video3.load();
+      video4.load();
       modal.style.display = 'none';
     }
 

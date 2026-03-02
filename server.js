@@ -907,7 +907,7 @@ app.get('/fights/data/:id', async (req, res) => {
     WHERE s.id = ?`;
   const sqlFighters = `SELECT id, name FROM fighters`;
   const sqlDatafight = `
-    SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+    SELECT id, clipdetail, clipdetail2, clipdetail3, clipdetail4, fighterdetail, time, timehit, fighterid, round
     FROM datafight
     WHERE schedulefight_id = ?
     ORDER BY round ASC, id ASC`;
@@ -1006,7 +1006,7 @@ app.post('/match/summary', async (req, res) => {
 
     // ดึงข้อมูล datafight
     const sql = `
-      SELECT id, clipdetail, clipdetail2, fighterdetail, time, timehit, fighterid, round
+      SELECT id, clipdetail, clipdetail2, clipdetail3, clipdetail4, fighterdetail, time, timehit, fighterid, round
       FROM datafight
       WHERE schedulefight_id = ?
       ORDER BY round ASC, id ASC`;
@@ -1100,7 +1100,7 @@ app.post('/upload-video', upload.single('video'), (req, res) => {
 });
 
 app.post('/datafight/save', async (req, res) => {
-  const { schedulefight_id, clip_url, clip_url2, data, time, round } = req.body;
+  const { schedulefight_id, clip_url, clip_url2, clip_url3, clip_url4, data, time, round } = req.body;
   if (!data || data.length === 0) {
     logger.error('No data provided for datafight save');
     return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -1128,14 +1128,14 @@ app.post('/datafight/save', async (req, res) => {
       }
       const timehit = secondsToTime(timeHitSeconds);
       const fighterDetail = d.fighterdetail || `${d.label} ${details}${d.position ? ' ' + d.position : ''}`;
-      insertData.push([time, fighterid, fighterDetail, clip_url, schedulefight_id, timehit, round, clip_url2]);
+      insertData.push([time, fighterid, fighterDetail, clip_url, schedulefight_id, timehit, round, clip_url2, clip_url3, clip_url4]);
     });
     if (insertData.length === 0) {
       throw new Error('ไม่มีข้อมูลให้บันทึก');
     }
     // ใน transaction
     await connection.query(
-      'INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2, user_id) VALUES ?',
+      'INSERT INTO datafight (time, fighterid, fighterdetail, clipdetail, schedulefight_id, timehit, round, clipdetail2, clipdetail3, clipdetail4, user_id) VALUES ?',
       [insertData.map(row => [...row, req.session.user.id])]
     );
     await connection.commit();
