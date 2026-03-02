@@ -555,6 +555,7 @@ table.fight-rounds th,
           <button id="btnSummary">📊 สรุปผลการแข่งขัน</button>
           <button onclick="swapPorts()" id="swapBtn" disabled>🔄 สลับพอร์ตนักชก (รอเชื่อมต่อ COM)</button>
           <button onclick="testCameras()">📸 ทดสอบกล้อง</button>
+          <button onclick="openCameraSelector()" id="selectCamBtn" disabled>🎛️ เลือกกล้องก่อนบันทึก</button>
         </div>
 
         <h2>ข้อมูลการแข่งขันย้อนหลัง</h2>
@@ -1206,8 +1207,8 @@ function openClipModal(url1, url2, url3, url4, timehit, timestamps, round) {
 
   if (decodedUrl1) video1.src = decodedUrl1;
   if (decodedUrl2) video2.src = decodedUrl2;
-  if (decodedUrl3) video2.src = decodedUrl3;
-  if (decodedUrl4) video2.src = decodedUrl4;
+  if (decodedUrl3) video3.src = decodedUrl3;
+  if (decodedUrl4) video4.src = decodedUrl4;
 
   video1.load();
   video2.load();
