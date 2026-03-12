@@ -155,7 +155,7 @@ const processSensorData = (rawData, portName, state, emitEvent) => {
     { name: 'stomach', value: stomachVal, threshold: 1500 },
     { name: 'left', value: leftVal, threshold: 1500 },
     { name: 'right', value: rightVal, threshold: 1500 },
-    { name: 'head', value: headVal, threshold: 60 } // Changed threshold from 5 to 40
+    { name: 'head', value: headVal, threshold: 40 } // Changed threshold from 5 to 40
   ];
   sensors.forEach(({ name, value, threshold }) => {
     if (value >= threshold) {

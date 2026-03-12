@@ -127,7 +127,34 @@ table.fight-rounds th,
     font-size: 1.2em;
     font-weight: 600;
   }
+.fight-timer {
+  text-align: center;
+  margin: 8px 0 16px 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #1e40af;               /* น้ำเงินเข้ม */
+  background: #eff6ff;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+}
 
+.fight-timer strong {
+  font-size: 1.5rem;
+  color: #1d4ed8;
+  min-width: 70px;
+  display: inline-block;
+}
+
+.fight-timer.running strong {
+  color: #dc2626;              /* แดงเมื่อกำลังนับ */
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
   .watch-btn {
     background: var(--accent);
     color: white;
@@ -435,6 +462,16 @@ table.fight-rounds th,
     text-align: center;
     border: 1px solid var(--table-border);
   }
+
+  .fight-timer.running strong.warning {
+  color: #f59e0b; /* สีส้มเตือน */
+  animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 </style>
 </head>
 <body>
@@ -443,52 +480,23 @@ table.fight-rounds th,
 
     <!-- Modal เดิมทั้งหมด (เหมือนเดิม 100%) -->
     <div id="cameraTestModal">
-      <div class="modal-content">
-        <span class="modal-close" onclick="closeCameraTestModal()">&times;</span>
-        <h2>ทดสอบกล้อง</h2>
-        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-          <video id="testCam1" autoplay playsinline style="display: none;"></video>
-          <video id="testCam2" autoplay playsinline style="display: none;"></video>
-        </div>
-        <button onclick="closeCameraTestModal()">ปิด</button>
-      </div>
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeCameraTestModal()">×</span>
+    <h2>ทดสอบกล้องทั้งหมด</h2>
+    
+    <!-- Container สำหรับสร้าง video แบบ dynamic -->
+    <div id="testCamerasContainer" 
+         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+                gap: 15px; padding: 10px; max-height: 70vh; overflow-y: auto;">
+      <!-- วิดีโอจะถูกสร้างที่นี่ด้วย JavaScript -->
     </div>
 
-    <div id="cameraSelectorModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center;">
-      <div style="background:white; padding:20px; border-radius:12px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
-        <h2>เลือกกล้องสำหรับแต่ละช่อง</h2>
-        <div id="cameraList"></div>
-        <div style="margin-top:20px; text-align:right;">
-          <button onclick="closeCameraSelector()">ยกเลิก</button>
-          <button onclick="saveCameraSelection()" style="background:#3b82f6; color:white;">บันทึกการเลือก</button>
-        </div>
-      </div>
+    <div style="margin-top: 20px; text-align: center;">
+      <p id="cameraCountInfo" style="color: #6b7280; margin-bottom: 10px;"></p>
+      <button onclick="closeCameraTestModal()">ปิด</button>
     </div>
-
-    <div id="clipModal">
-      <div class="modal-content">
-        <span class="modal-close" onclick="closeClipModal()">&times;</span>
-        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-          <div style="text-align: center;">
-            <h3>กล้อง 1</h3>
-            <video id="clipVideo1" muted preload="auto" controls style="display: none;"></video>
-          </div>
-          <div style="text-align: center;">
-            <h3>กล้อง 2</h3>
-            <video id="clipVideo2" muted preload="auto" controls style="display: none;"></video>
-          </div>
-          <div style="text-align: center;">
-            <h3>กล้อง 3</h3>
-            <video id="clipVideo3" muted preload="auto" controls style="display: none;"></video>
-          </div>
-          <div style="text-align: center;">
-            <h3>กล้อง 4</h3>
-            <video id="clipVideo4" muted preload="auto" controls style="display: none;"></video>
-          </div>
-        </div>
-        <div id="timestampButtons" style="margin-top: 15px; text-align: center;"></div>
-      </div>
-    </div>
+  </div>
+</div>
 
     <div id="summaryModal">
       <div class="modal-content">
@@ -546,6 +554,9 @@ table.fight-rounds th,
         <div class="fighter-info-container">
           <div class="realtime-container" id="realtime1">
             <h2 id="fighter1-header">ข้อมูล Real-time <%= fighter1.name %></h2>
+            <div class="fight-timer" id="timer1">
+              <span>เวลาแข่งขัน:</span> <strong id="timeDisplay1">0:00</strong>
+            </div>
             <table class="realtime-table" id="fighter1Table">
               <thead><tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr></thead>
               <tbody></tbody>
@@ -553,6 +564,9 @@ table.fight-rounds th,
           </div>
           <div class="realtime-container fighter2" id="realtime2">
             <h2 id="fighter2-header">ข้อมูล Real-time <%= fighter2.name %></h2>
+            <div class="fight-timer" id="timer2">
+              <span>เวลาแข่งขัน:</span> <strong id="timeDisplay2">0:00</strong>
+            </div>
             <table class="realtime-table" id="fighter2Table">
               <thead><tr><th>เวลา</th><th>ตำแหน่ง</th><th>ข้อมูล (N)</th></tr></thead>
               <tbody></tbody>
@@ -561,6 +575,7 @@ table.fight-rounds th,
         </div>
 
         <div style="text-align: center; margin: 20px 0;">
+          <button onclick="preloadCameras()" id="preloadBtn" disabled>📷 เตรียมกล้องล่วงหน้า (รอเชื่อมต่อ COM)</button>
           <button onclick="startRecording()" id="startBtn" disabled>🎥 เริ่มการแข่งขัน (รอเชื่อมต่อ COM)</button>
           <button onclick="stopRecording()" id="stopBtn" disabled>⛔ จบการแข่งขัน</button>
           <button id="btnSummary">📊 สรุปผลการแข่งขัน</button>
@@ -601,17 +616,17 @@ table.fight-rounds th,
 
   <% if (clipCount > 0) { %>
     <button class="watch-btn"
-            onclick='openClipModal(
-              "<%= encodeURIComponent(item.clipdetail  || "") %>",
-              "<%= encodeURIComponent(item.clipdetail2 || "") %>",
-              "<%= encodeURIComponent(item.clipdetail3 || "") %>",
-              "<%= encodeURIComponent(item.clipdetail4 || "") %>",
-              "<%= encodeURIComponent(item.timehit) %>",
-              <%= JSON.stringify(timestamps) %>,
-              "<%= round %>"
-            )'>
-      ดูคลิป <%= clipCount %> มุม
-    </button>
+        onclick='openClipModal(
+          "<%= item.clipdetail || "" %>",     
+          "<%= item.clipdetail2 || "" %>",
+          "<%= item.clipdetail3 || "" %>",
+          "<%= item.clipdetail4 || "" %>",
+          "<%= item.timehit %>",              
+          <%= JSON.stringify(timestamps) %>,
+          "<%= round %>"
+        )'>
+  ดูคลิป <%= clipCount %> มุม
+</button>
   <% } else { %>
     ไม่มีคลิป
   <% } %>
@@ -624,6 +639,24 @@ table.fight-rounds th,
         </div>
 
       </div>
+
+<div id="clipModal">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeClipModal()">×</span>
+    <h2>ดูคลิปเหตุการณ์</h2>
+
+    <!-- เพิ่มตรงนี้ – วิดีโอ 4 มุม -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 15px 0;">
+      <video id="clipVideo1" controls autoplay muted style="max-width: 48%; max-height: 65vh; background:#000; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2);"></video>
+      <video id="clipVideo2" controls autoplay muted style="max-width: 48%; max-height: 65vh; background:#000; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2);"></video>
+      <video id="clipVideo3" controls autoplay muted style="max-width: 48%; max-height: 65vh; background:#000; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2);"></video>
+      <video id="clipVideo4" controls autoplay muted style="max-width: 48%; max-height: 65vh; background:#000; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2);"></video>
+    </div>
+
+    <!-- ส่วน timestamp -->
+    <div id="timestampButtons"></div>
+  </div>
+</div>
 
       <!-- ฝั่งขวา: กล้องเรียลไทม์ (sticky) -->
       <div class="right-cameras-sidebar">
@@ -654,9 +687,13 @@ table.fight-rounds th,
 
   <script>
     const socket = io();
-    let mediaRecorder1, mediaRecorder2, ediaRecorder3, mediaRecorder4;
+    let mediaRecorder1, mediaRecorder2, mediaRecorder3, mediaRecorder4;
     let recordedChunks1 = [], recordedChunks2 = [], recordedChunks3 = [], recordedChunks4 = [];
     let startTime = null;
+    let isStopping = false;
+    let fightTimerInterval = null;
+    let elapsedSeconds = 0;
+    const MAX_ROUND_SECONDS = 180; // 3 นาที = 180 วินาที
     let realtimeData = [];
     let roundsData = [];
     let roundNumber = <%= typeof roundNumberStart !== 'undefined' ? roundNumberStart : 1 %>;
@@ -667,12 +704,21 @@ table.fight-rounds th,
     let stream3 = null;
     let stream4 = null;
 
+
     let selectedDeviceIds = {
       cam1: null,
       cam2: null,
       cam3: null,
       cam4: null
     };
+
+    let preloadedStreams = {
+  cam1: null,
+  cam2: null,
+  cam3: null,
+  cam4: null
+  };
+  let isPreloaded = false;
 
 
     socket.on('connect', () => {
@@ -698,7 +744,7 @@ table.fight-rounds th,
     document.getElementById('fighter1-header').textContent = `ข้อมูล Real-time <%= fighter1.name %> (${status.fighterPort1 || 'ไม่ระบุ'})`;
     document.getElementById('fighter2-header').textContent = `ข้อมูล Real-time <%= fighter2.name %> (${status.fighterPort2 || 'ไม่ระบุ'})`;
 
-    
+    updateControlButtonsState();
     });
 
     socket.on('COM_PORT_1_DATA', (data) => {
@@ -760,6 +806,23 @@ table.fight-rounds th,
           : 'ต้องเชื่อมต่อ COM port อย่างน้อย 1 ฝั่งก่อนถึงจะสลับได้';
       }
       document.getElementById('selectCamBtn').disabled = !atLeastOneConnected;
+
+      // === เพิ่มใหม่ === ปุ่มเตรียมกล้องล่วงหน้า
+  const preloadBtn = document.getElementById('preloadBtn');
+if (preloadBtn) {
+  preloadBtn.disabled = !atLeastOneConnected || !!startTime;
+  preloadBtn.textContent = startTime 
+    ? 'กำลังแข่งขันอยู่' 
+    : atLeastOneConnected 
+      ? '📷 เตรียมกล้องล่วงหน้า' 
+      : '📷 เตรียมกล้องล่วงหน้า (รอเชื่อมต่อ COM)';
+}
+
+      // ถ้ายังไม่เริ่มแข่ง → แสดง 0:00 ชัดเจน
+  if (!startTime) {
+    elapsedSeconds = 0;
+    updateTimerDisplay();
+  }
     }
 
     // เรียกครั้งแรกตอนโหลดหน้า (เผื่อ socket ช้า)
@@ -801,9 +864,161 @@ table.fight-rounds th,
       tbody.parentElement.scrollTop = 0;
     }
 
+//-------------------------------------Preload CAM-------------------------------------------------
+async function preloadCameras() {
+  const preloadBtn = document.getElementById('preloadBtn');
+  if (!preloadBtn) return;
+
+  preloadBtn.disabled = true;
+  preloadBtn.textContent = "⏳ กำลังเตรียมกล้อง...";
+
+  try {
+    // ขออนุญาตครั้งเดียวก่อน (เพื่อให้ label ชัดเจน และหลีกเลี่ยง popup ซ้ำ)
+    await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(s => { s.getTracks().forEach(t => t.stop()); })
+      .catch(() => {});
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+    if (videoInputs.length === 0) {
+      alert("ไม่พบกล้องใด ๆ ในระบบเลย กรุณาตรวจสอบการเชื่อมต่อกล้อง");
+      return;
+    }
+
+    // ล้าง stream เก่าทั้งหมดก่อน preload ใหม่
+    Object.values(preloadedStreams).forEach(stream => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    });
+
+    // รีเซ็ต object
+    preloadedStreams = {
+      cam1: null,
+      cam2: null,
+      cam3: null,
+      cam4: null
+    };
+
+    let openedCount = 0;
+
+    // ────────────── กล้อง 1 ──────────────
+    if (videoInputs.length >= 1 || selectedDeviceIds.cam1) {
+      const deviceId = selectedDeviceIds.cam1 || videoInputs[0]?.deviceId;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: false
+        });
+        preloadedStreams.cam1 = stream;
+        openedCount++;
+        // แสดงภาพเรียลไทม์ทันที (ดีมากสำหรับ UX)
+        const videoEl = document.getElementById('cam1');
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(e => console.warn('เล่น cam1 ล้มเหลว', e));
+        }
+      } catch (err) {
+        console.warn('Preload กล้อง 1 ล้มเหลว:', err);
+      }
+    }
+
+    // ────────────── กล้อง 2 ──────────────
+    if (videoInputs.length >= 2 || selectedDeviceIds.cam2) {
+      const deviceId = selectedDeviceIds.cam2 || videoInputs[1]?.deviceId;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: false
+        });
+        preloadedStreams.cam2 = stream;
+        openedCount++;
+        const videoEl = document.getElementById('cam2');
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(e => console.warn('เล่น cam2 ล้มเหลว', e));
+        }
+      } catch (err) {
+        console.warn('Preload กล้อง 2 ล้มเหลว:', err);
+      }
+    }
+
+    // ────────────── กล้อง 3 ──────────────
+    if (videoInputs.length >= 3 || selectedDeviceIds.cam3) {
+      const deviceId = selectedDeviceIds.cam3 || videoInputs[2]?.deviceId;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: false
+        });
+        preloadedStreams.cam3 = stream;
+        openedCount++;
+        const videoEl = document.getElementById('cam3');
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(e => console.warn('เล่น cam3 ล้มเหลว', e));
+        }
+      } catch (err) {
+        console.warn('Preload กล้อง 3 ล้มเหลว:', err);
+      }
+    }
+
+    // ────────────── กล้อง 4 ──────────────
+    if (videoInputs.length >= 4 || selectedDeviceIds.cam4) {
+      const deviceId = selectedDeviceIds.cam4 || videoInputs[3]?.deviceId;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: false
+        });
+        preloadedStreams.cam4 = stream;
+        openedCount++;
+        const videoEl = document.getElementById('cam4');
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(e => console.warn('เล่น cam4 ล้มเหลว', e));
+        }
+      } catch (err) {
+        console.warn('Preload กล้อง 4 ล้มเหลว:', err);
+      }
+    }
+
+    if (openedCount === 0) {
+      alert("ไม่สามารถเปิดกล้องตัวใดตัวหนึ่งได้เลย กรุณาตรวจสอบการเชื่อมต่อและสิทธิ์");
+    } else {
+      alert(`เตรียมกล้องเรียบร้อยแล้ว (${openedCount} ตัว) กด "เริ่มการแข่งขัน" ได้เลย`);
+      isPreloaded = true;
+      document.getElementById('startBtn').disabled = false;
+    }
+
+  } catch (err) {
+    console.error('เกิดข้อผิดพลาดในการ preload กล้อง:', err);
+    let msg = 'เกิดข้อผิดพลาดในการเตรียมกล้อง\n';
+    if (err.name === 'NotAllowedError') {
+      msg += 'กรุณาอนุญาตให้เว็บเข้าถึงกล้อง';
+    } else if (err.name === 'NotFoundError') {
+      msg += 'ไม่พบกล้องที่ระบุ';
+    } else {
+      msg += err.message;
+    }
+    alert(msg);
+  } finally {
+    // คืนค่า button ให้กดได้อีก
+    preloadBtn.disabled = false;
+    preloadBtn.textContent = "📷 เตรียมกล้องล่วงหน้า";
+  }
+}
+//-------------------------------------------------------------------------------------------------
+
     async function startRecording() {
   if (startTime) {
     alert('กำลังบันทึกอยู่แล้ว! กรุณากด "จบการแข่งขัน" ก่อน');
+    return;
+  }
+
+  if (!isPreloaded) {
+    alert('กรุณากด "เตรียมกล้องล่วงหน้า" ก่อนเริ่มการแข่งขัน เพื่อให้เริ่มได้เร็ว');
     return;
   }
 
@@ -814,258 +1029,179 @@ table.fight-rounds th,
   recordedChunks4 = [];
   realtimeData = [];
 
-  try {
-    // ดึงรายการอุปกรณ์
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoInputs = devices.filter(device => device.kind === 'videoinput');
+  elapsedSeconds = 0;
+  updateTimerDisplay();
 
-    console.log('พบกล้องก่อน permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
+  let cameraCount = 0;
 
-    // ถ้ายังไม่เห็นกล้องเลย → ขออนุญาตก่อน
-    if (videoInputs.length === 0 || !videoInputs.some(d => d.deviceId && d.deviceId !== '')) {
-      const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      initialStream.getTracks().forEach(track => track.stop());
+  // ใช้ stream ที่ preload ไว้แล้ว
+  stream1 = preloadedStreams.cam1;
+  stream2 = preloadedStreams.cam2;
+  stream3 = preloadedStreams.cam3;
+  stream4 = preloadedStreams.cam4;
 
-      // อัปเดต devices หลัง permission
-      const refreshedDevices = await navigator.mediaDevices.enumerateDevices();
-      videoInputs.length = 0;
-      videoInputs.push(...refreshedDevices.filter(d => d.kind === 'videoinput'));
+  // เริ่มบันทึกสำหรับแต่ละกล้องที่มี stream
+  if (stream1 && stream1.active) {
+    mediaRecorder1 = new MediaRecorder(stream1);
+    mediaRecorder1.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks1.push(e.data);
+    };
+    mediaRecorder1.start();
+    cameraCount++;
+  }
 
-      console.log('พบกล้องหลัง permission:', videoInputs.map(d => ({ label: d.label, id: d.deviceId })));
-    }
+  if (stream2 && stream2.active) {
+    mediaRecorder2 = new MediaRecorder(stream2);
+    mediaRecorder2.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks2.push(e.data);
+    };
+    mediaRecorder2.start();
+    cameraCount++;
+  }
 
-    if (videoInputs.length === 0) {
-      throw new Error('ไม่พบกล้องใด ๆ แม้หลังขออนุญาต');
-    }
+  if (stream3 && stream3.active) {
+    mediaRecorder3 = new MediaRecorder(stream3);
+    mediaRecorder3.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks3.push(e.data);
+    };
+    mediaRecorder3.start();
+    cameraCount++;
+  }
 
-        // -------------------------------
-    // กล้อง 1 (ตัวแรกเสมอ หรือตามที่เลือก)
-    let cameraCount = 0;
-    stream1 = null; mediaRecorder1 = null;
+  if (stream4 && stream4.active) {
+    mediaRecorder4 = new MediaRecorder(stream4);
+    mediaRecorder4.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks4.push(e.data);
+    };
+    mediaRecorder4.start();
+    cameraCount++;
+  }
 
-    let deviceId1 = selectedDeviceIds.cam1;
-    if (!deviceId1 && videoInputs.length > 0) {
-      deviceId1 = videoInputs[0].deviceId;  // fallback เป็นตัวแรก
-    }
-
-    try {
-      stream1 = await navigator.mediaDevices.getUserMedia({
-        video: deviceId1 ? { deviceId: { exact: deviceId1 } } : true,
-        audio: false
-      });
-      document.getElementById('cam1').srcObject = stream1;
-      await document.getElementById('cam1').play().catch(e => console.warn('เล่น cam1 ล้มเหลว:', e));
-
-      mediaRecorder1 = new MediaRecorder(stream1);
-      mediaRecorder1.ondataavailable = e => {
-        if (e.data.size > 0) recordedChunks1.push(e.data);
-      };
-      mediaRecorder1.start();
-
-      cameraCount++;
-      console.log('เปิดกล้อง 1 สำเร็จ (deviceId:', deviceId1 || 'default', ')');
-    } catch (err1) {
-      console.warn('เปิดกล้อง 1 ล้มเหลว:', err1);
-    }
-
-    // -------------------------------
-    // กล้อง 2
-    stream2 = null; mediaRecorder2 = null;
-
-    if (videoInputs.length >= 2 || selectedDeviceIds.cam2) {
-      let deviceId2 = selectedDeviceIds.cam2;
-      if (!deviceId2 && videoInputs.length >= 2) {
-        deviceId2 = videoInputs[1].deviceId;  // fallback เป็นตัวที่ 2
-      }
-
-      try {
-        stream2 = await navigator.mediaDevices.getUserMedia({
-          video: deviceId2 ? { deviceId: { exact: deviceId2 } } : true,
-          audio: false
-        });
-        document.getElementById('cam2').srcObject = stream2;
-        await document.getElementById('cam2').play().catch(e => console.warn('เล่น cam2 ล้มเหลว:', e));
-
-        mediaRecorder2 = new MediaRecorder(stream2);
-        mediaRecorder2.ondataavailable = e => {
-          if (e.data.size > 0) recordedChunks2.push(e.data);
-        };
-        mediaRecorder2.start();
-
-        cameraCount++;
-        console.log('เปิดกล้อง 2 สำเร็จ (deviceId:', deviceId2 || 'default', ')');
-      } catch (err2) {
-        console.warn('เปิดกล้อง 2 ล้มเหลว:', err2);
-      }
-    }
-
-    // -------------------------------
-    // กล้อง 3
-    stream3 = null; mediaRecorder3 = null;
-
-    if (videoInputs.length >= 3 || selectedDeviceIds.cam3) {
-      let deviceId3 = selectedDeviceIds.cam3;
-      if (!deviceId3 && videoInputs.length >= 3) {
-        deviceId3 = videoInputs[2].deviceId;  // fallback เป็นตัวที่ 3
-      }
-
-      try {
-        stream3 = await navigator.mediaDevices.getUserMedia({
-          video: deviceId3 ? { deviceId: { exact: deviceId3 } } : true,
-          audio: false
-        });
-        document.getElementById('cam3').srcObject = stream3;
-        await document.getElementById('cam3').play().catch(e => console.warn('เล่น cam3 ล้มเหลว:', e));
-
-        mediaRecorder3 = new MediaRecorder(stream3);
-        mediaRecorder3.ondataavailable = e => {
-          if (e.data.size > 0) recordedChunks3.push(e.data);
-        };
-        mediaRecorder3.start();
-
-        cameraCount++;
-        console.log('เปิดกล้อง 3 สำเร็จ (deviceId:', deviceId3 || 'default', ')');
-      } catch (err3) {
-        console.warn('เปิดกล้อง 3 ล้มเหลว:', err3);
-      }
-    }
-
-    // -------------------------------
-    // กล้อง 4
-    stream4 = null; mediaRecorder4 = null;
-
-    if (videoInputs.length >= 4 || selectedDeviceIds.cam4) {
-      let deviceId4 = selectedDeviceIds.cam4;
-      if (!deviceId4 && videoInputs.length >= 4) {
-        deviceId4 = videoInputs[3].deviceId;  // fallback เป็นตัวที่ 4
-      }
-
-      try {
-        stream4 = await navigator.mediaDevices.getUserMedia({
-          video: deviceId4 ? { deviceId: { exact: deviceId4 } } : true,
-          audio: false
-        });
-        document.getElementById('cam4').srcObject = stream4;
-        await document.getElementById('cam4').play().catch(e => console.warn('เล่น cam4 ล้มเหลว:', e));
-
-        mediaRecorder4 = new MediaRecorder(stream4);
-        mediaRecorder4.ondataavailable = e => {
-          if (e.data.size > 0) recordedChunks4.push(e.data);
-        };
-        mediaRecorder4.start();
-
-        cameraCount++;
-        console.log('เปิดกล้อง 4 สำเร็จ (deviceId:', deviceId4 || 'default', ')');
-      } catch (err4) {
-        console.warn('เปิดกล้อง 4 ล้มเหลว:', err4);
-      }
-    }
-
-    // อัปเดตข้อความแจ้งเตือน
-    document.getElementById('stopBtn').disabled = false;
-
-    alert(`เริ่มบันทึกเรียบร้อยแล้ว (เปิดได้ ${cameraCount} กล้อง)`);
-
-  } catch (err) {
+  if (cameraCount === 0) {
+    alert('ไม่มีกล้องที่พร้อมใช้งาน กรุณากด "เตรียมกล้องล่วงหน้า" อีกครั้ง');
     startTime = null;
-    console.error('เปิดกล้องหรือเริ่มบันทึกล้มเหลว:', err.name, err.message);
+    return;
+  }
 
-    let msg = 'เกิดข้อผิดพลาดในการเปิดกล้อง: ' + err.message;
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      msg = 'คุณยังไม่ได้อนุญาตให้เว็บเข้าถึงกล้อง\nกรุณาอนุญาตใน popup ของเบราว์เซอร์ แล้วลองกดเริ่มใหม่';
-    } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-      msg = 'ไม่พบกล้องหรือไม่สามารถใช้กล้องที่ระบุได้\nกรุณาตรวจสอบว่ากล้องเสียบอยู่และไม่ได้ถูกใช้งานโดยโปรแกรมอื่น';
+  if (!fightTimerInterval) {
+  fightTimerInterval = setInterval(() => {
+    if (!startTime) {  // ป้องกัน interval วิ่งต่อหลัง stop
+      clearInterval(fightTimerInterval);
+      fightTimerInterval = null;
+      return;
     }
-    alert(msg);
 
-    // หยุดทุก stream ที่อาจเปิดค้างไว้
-    [stream1, stream2, stream3, stream4].forEach(s => {
-      if (s) s.getTracks().forEach(track => track.stop());
-    });
-    stream1 = stream2 = stream3 = stream4 = null;
+    elapsedSeconds++;
+    updateTimerDisplay();
 
-    // ล้าง srcObject ทุกตัว
-    ['cam1', 'cam2', 'cam3', 'cam4'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.srcObject = null;
-    });
+    if (elapsedSeconds >= MAX_ROUND_SECONDS) {
+      console.log("หมดเวลา 3 นาที → เรียก auto stopRecording");
+      stopRecording();
+    }
+  }, 1000);
+}
+
+  document.getElementById('stopBtn').disabled = false;
+  alert(`เริ่มการแข่งขันเรียบร้อยแล้ว (ใช้กล้อง ${cameraCount} ตัวที่เตรียมไว้)`);
+}
+//---------------------------นับเวลา-------------------------------------
+
+
+// ฟังก์ชันอัปเดตหน้าจอทั้งสองฝั่ง
+function updateTimerDisplay() {
+  const timeStr = `${Math.floor(elapsedSeconds / 60)}:${(elapsedSeconds % 60).toString().padStart(2, '0')}`;
+  
+  document.getElementById('timeDisplay1').textContent = timeStr;
+  document.getElementById('timeDisplay2').textContent = timeStr;
+
+  if (startTime) {
+    document.getElementById('timer1')?.classList.add('running');
+    document.getElementById('timer2')?.classList.add('running');
+  } else {
+    document.getElementById('timer1')?.classList.remove('running');
+    document.getElementById('timer2')?.classList.remove('running');
+  }
+
+  // เตือน 10 วินาที (เหมือนเดิม)
+  if (elapsedSeconds >= MAX_ROUND_SECONDS - 10 && elapsedSeconds < MAX_ROUND_SECONDS) {
+    document.getElementById('timeDisplay1')?.classList.add('warning');
+    document.getElementById('timeDisplay2')?.classList.add('warning');
+  } else {
+    document.getElementById('timeDisplay1')?.classList.remove('warning');
+    document.getElementById('timeDisplay2')?.classList.remove('warning');
   }
 }
 
-    async function stopRecording() {
+async function stopRecording() {
+  if (isStopping) {
+    console.log("กำลังหยุดอยู่แล้ว → ข้ามการเรียก stopRecording ซ้ำ");
+    return;
+  }
+
+  isStopping = true;
+
   try {
-    // หยุด recorder และเก็บ blob
+    console.log("เริ่มกระบวนการหยุดการบันทึก...");
+
+    // 1. หยุด stream ทั้งหมดก่อน (เพื่อไม่ให้ MediaRecorder ยังจับภาพต่อ)
+    [stream1, stream2, stream3, stream4].forEach((s, i) => {
+      if (s) {
+        console.log(`หยุด stream กล้อง ${i + 1}`);
+        s.getTracks().forEach(track => track.stop());
+      }
+    });
+    stream1 = stream2 = stream3 = stream4 = null;
+
+    // ล้าง srcObject ของ video element ทันที
+    ['cam1', 'cam2', 'cam3', 'cam4'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.srcObject = null;
+      }
+    });
+
+    // 2. หยุด MediaRecorder และสร้าง blob
     let blob1 = null, blob2 = null, blob3 = null, blob4 = null;
 
-    if (mediaRecorder1 && (mediaRecorder1.state === 'recording' || mediaRecorder1.state === 'paused')) {
-      await new Promise(resolve => {
-        mediaRecorder1.onstop = () => resolve();
-        mediaRecorder1.stop();
-      });
-      blob1 = new Blob(recordedChunks1, { type: 'video/webm' });
-    }
+    const stopRecorder = (recorder, chunks) => {
+      if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+        return new Promise(resolve => {
+          recorder.onstop = () => resolve();
+          recorder.stop();
+        }).then(() => {
+          if (chunks.length > 0) {
+            return new Blob(chunks, { type: 'video/webm' });
+          }
+          return null;
+        });
+      }
+      return Promise.resolve(null);
+    };
 
-    if (mediaRecorder2 && (mediaRecorder2.state === 'recording' || mediaRecorder2.state === 'paused')) {
-      await new Promise(resolve => {
-        mediaRecorder2.onstop = () => resolve();
-        mediaRecorder2.stop();
-      });
-      blob2 = new Blob(recordedChunks2, { type: 'video/webm' });
-    }
+    blob1 = await stopRecorder(mediaRecorder1, recordedChunks1);
+    blob2 = await stopRecorder(mediaRecorder2, recordedChunks2);
+    blob3 = await stopRecorder(mediaRecorder3, recordedChunks3);
+    blob4 = await stopRecorder(mediaRecorder4, recordedChunks4);
 
-    if (mediaRecorder3 && (mediaRecorder3.state === 'recording' || mediaRecorder3.state === 'paused')) {
-      await new Promise(resolve => {
-        mediaRecorder3.onstop = () => resolve();
-        mediaRecorder3.stop();
-      });
-      blob3 = new Blob(recordedChunks3, { type: 'video/webm' });
-    }
+    // 3. อัปโหลดวิดีโอ (เฉพาะที่มี blob)
+    let clipUrl1 = '', clipUrl2 = '', clipUrl3 = '', clipUrl4 = '';
 
-    if (mediaRecorder4 && (mediaRecorder4.state === 'recording' || mediaRecorder4.state === 'paused')) {
-      await new Promise(resolve => {
-        mediaRecorder4.onstop = () => resolve();
-        mediaRecorder4.stop();
-      });
-      blob4 = new Blob(recordedChunks4, { type: 'video/webm' });
-    }
+    const uploadVideo = async (blob, filename) => {
+      if (!blob || blob.size === 0) return '';
+      const fd = new FormData();
+      fd.append('video', blob, filename);
+      const res = await fetch('/upload-video', { method: 'POST', body: fd });
+      const json = await res.json();
+      return json.success ? json.url : '';
+    };
 
-    // อัปโหลดวิดีโอ (เหมือนเดิม)
-    let clipUrl1 = '', clipUrl2 = '' ,clipUrl3 = '',clipUrl4 = '';
+    clipUrl1 = await uploadVideo(blob1, 'fight_cam1.webm');
+    clipUrl2 = await uploadVideo(blob2, 'fight_cam2.webm');
+    clipUrl3 = await uploadVideo(blob3, 'fight_cam3.webm');
+    clipUrl4 = await uploadVideo(blob4, 'fight_cam4.webm');
 
-    if (blob1?.size > 0) {
-      const fd1 = new FormData();
-      fd1.append('video', blob1, 'fight_cam1.webm');
-      const res1 = await fetch('/upload-video', { method: 'POST', body: fd1 });
-      const json1 = await res1.json();
-      if (json1.success) clipUrl1 = json1.url;
-    }
-
-    if (blob2?.size > 0) {
-      const fd2 = new FormData();
-      fd2.append('video', blob2, 'fight_cam2.webm');
-      const res2 = await fetch('/upload-video', { method: 'POST', body: fd2 });
-      const json2 = await res2.json();
-      if (json2.success) clipUrl2 = json2.url;
-    }
-
-    if (blob3?.size > 0) {
-      const fd3 = new FormData();
-      fd3.append('video', blob3, 'fight_cam3.webm');
-      const res3 = await fetch('/upload-video', { method: 'POST', body: fd3 });
-      const json3 = await res3.json();
-      if (json3.success) clipUrl3 = json3.url;
-    }
-
-    if (blob4?.size > 0) {
-      const fd4 = new FormData();
-      fd4.append('video', blob4, 'fight_cam4.webm');
-      const res4 = await fetch('/upload-video', { method: 'POST', body: fd4 });
-      const json4 = await res4.json();
-      if (json4.success) clipUrl4 = json4.url;
-    }
-
-    // คำนวณเวลาและบันทึกข้อมูล (เหมือนเดิม)
-    const durationMs = Date.now() - startTime;
+    // 4. คำนวณเวลาและบันทึกข้อมูลลงฐานข้อมูล
+    const durationMs = startTime ? Date.now() - startTime : 0;
     const totalSeconds = Math.floor(durationMs / 1000);
     const fightDuration = `${Math.floor(totalSeconds / 60)}:${(totalSeconds % 60).toString().padStart(2, '0')}`;
 
@@ -1085,8 +1221,11 @@ table.fight-rounds th,
     });
 
     const saveData = await saveRes.json();
-    if (!saveData.success) throw new Error('บันทึกข้อมูลล้มเหลว');
+    if (!saveData.success) {
+      throw new Error('บันทึกข้อมูลล้มเหลว: ' + (saveData.message || 'ไม่ทราบสาเหตุ'));
+    }
 
+    // 5. อัปเดต roundsData (ถ้ามี)
     roundsData.push({
       round: roundNumber,
       fightDuration,
@@ -1098,133 +1237,173 @@ table.fight-rounds th,
     });
     roundNumber++;
 
-    alert('บันทึกข้อมูลเรียบร้อยแล้ว' + (clipUrl1 || clipUrl2 || clipUrl3 || clipUrl4 ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
+    // แจ้งผล
+    const hasVideo = clipUrl1 || clipUrl2 || clipUrl3 || clipUrl4;
+    alert('จบการแข่งขันและบันทึกข้อมูลเรียบร้อยแล้ว' + (hasVideo ? ' (รวมวิดีโอ)' : ' (ไม่มีวิดีโอ)'));
 
+    // 6. รีเซ็ตสถานะทั้งหมด
     document.getElementById('stopBtn').disabled = true;
+    document.getElementById('startBtn').disabled = false; // เปิดให้เริ่มรอบใหม่ได้
 
-    // หยุดและล้าง stream ทั้งสองตัว
-    if (stream1) {
-      stream1.getTracks().forEach(track => track.stop());
-      stream1 = null;
-    }
-    if (stream2) {
-      stream2.getTracks().forEach(track => track.stop());
-      stream2 = null;
-    }
-    if (stream3) {
-      stream3.getTracks().forEach(track => track.stop());
-      stream3 = null;
-    }
-    if (stream4) {
-      stream4.getTracks().forEach(track => track.stop());
-      stream4 = null;
-    }
-
-    document.getElementById('cam1').srcObject = null;
-    document.getElementById('cam2').srcObject = null;
-    document.getElementById('cam3').srcObject = null;
-    document.getElementById('cam4').srcObject = null;
-
-    // แค่ reload หน้าเว็บเฉย ๆ (ตามที่คุณต้องการ)
-    window.location.reload();
-
-    // ล้าง realtime table
     realtimeData = [];
     document.querySelector('#fighter1Table tbody').innerHTML = '';
     document.querySelector('#fighter2Table tbody').innerHTML = '';
 
+    // รีเซ็ต timer
+    if (fightTimerInterval) {
+      clearInterval(fightTimerInterval);
+      fightTimerInterval = null;
+    }
+
+    startTime = null;
+    elapsedSeconds = 0;
+    updateTimerDisplay();
+
+    document.getElementById('timer1')?.classList.remove('running');
+    document.getElementById('timer2')?.classList.remove('running');
+
+    // ถ้าต้องการ reload หน้า (ตามโค้ดเดิม)
+    window.location.reload();
+
   } catch (error) {
-    console.error('เกิดข้อผิดพลาด:', error);
-    alert('เกิดข้อผิดพลาด: ' + error.message);
+    console.error('เกิดข้อผิดพลาดใน stopRecording:', error);
+    alert('เกิดข้อผิดพลาดในการจบการแข่งขัน:\n' + (error.message || 'ไม่ทราบสาเหตุ'));
+  } finally {
+    isStopping = false;
+    // ปลดล็อกให้สามารถกดหยุดซ้ำได้ (กรณีผู้ใช้กดปุ่มเอง)
   }
 }
 
-    async function testCameras() {
-  try {
-    // ขออนุญาตและดึงรายการอุปกรณ์ก่อน
-    await navigator.mediaDevices.getUserMedia({ video: true }); // ขออนุญาตครั้งแรก (เบราว์เซอร์จะถามที่นี่)
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoInputs = devices.filter(device => device.kind === 'videoinput');
+    // เก็บ stream สำหรับการทดสอบกล้อง (แยกจาก stream การแข่งขัน)
+let testStreams = []; // เก็บ stream ทุกตัว
 
-    console.log('พบกล้องทั้งหมด:', videoInputs.map(d => d.label || d.deviceId));
+async function testCameras() {
+  try {
+    // ขออนุญาตก่อน
+    await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => {});
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
 
     if (videoInputs.length === 0) {
-      alert('ไม่พบกล้องใด ๆ ในระบบเลย กรุณาเสียบกล้องหรือตรวจสอบการตั้งค่า');
+      alert('ไม่พบกล้องใด ๆ ในระบบเลย');
       return;
     }
 
+    // เปิด modal
     const modal = document.getElementById('cameraTestModal');
-    const testCam1 = document.getElementById('testCam1');
-    const testCam2 = document.getElementById('testCam2');
+    const container = document.getElementById('testCamerasContainer');
+    const info = document.getElementById('cameraCountInfo');
 
-    // เปิดกล้องตัวที่ 1 เสมอ (ตัวแรกในลิสต์)
-    const stream1 = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: videoInputs[0].deviceId } }
-    });
-    testCam1.srcObject = stream1;
-    testCam1.style.display = 'block';
-    testCam1.play().catch(err => console.error('เล่น cam1 ล้มเหลว:', err));
+    // ล้างของเก่าทั้งหมดก่อน
+    closeCameraTestModal(false);
 
-    // ถ้ามีกล้องตัวที่ 2 → เปิดด้วย
-    if (videoInputs.length >= 2) {
-      const stream2 = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: videoInputs[1].deviceId } }
-      });
-      testCam2.srcObject = stream2;
-      testCam2.style.display = 'block';
-      testCam2.play().catch(err => console.error('เล่น cam2 ล้มเหลว:', err));
-      alert('เปิดทั้งสองกล้องเรียบร้อยแล้ว!');
-    } else {
-      testCam2.style.display = 'none';
-      alert('พบแค่กล้องตัวเดียว เปิดเฉพาะกล้อง 1');
-    }
+    info.textContent = `กำลังทดสอบ ${videoInputs.length} กล้อง...`;
 
     modal.style.display = 'flex';
 
-    // เก็บ stream ไว้เพื่อปิดตอนปิด modal
-    window.testStreams = { stream1, stream2: videoInputs.length >= 2 ? stream2 : null };
+    testStreams = [];
+
+    // สร้าง video element สำหรับแต่ละกล้อง
+    videoInputs.forEach((device, index) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.textAlign = 'center';
+
+      const label = document.createElement('h4');
+      label.textContent = `กล้อง ${index + 1} - ${device.label || 'ไม่ระบุชื่อ'}`;
+      wrapper.appendChild(label);
+
+      const video = document.createElement('video');
+      video.id = `testCam-${index}`;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.width = '100%';
+      video.style.background = '#000';
+      video.style.borderRadius = '8px';
+      wrapper.appendChild(video);
+
+      container.appendChild(wrapper);
+
+      // พยายามเปิดกล้อง
+      navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: device.deviceId } }
+      })
+      .then(stream => {
+        testStreams[index] = stream;
+        video.srcObject = stream;
+        video.play().catch(e => console.warn(`เล่นกล้อง ${index+1} ล้มเหลว`, e));
+      })
+      .catch(err => {
+        console.warn(`เปิดกล้อง ${index+1} ล้มเหลว:`, err);
+        video.style.display = 'none';
+        const errorMsg = document.createElement('p');
+        errorMsg.textContent = 'เปิดไม่ได้';
+        errorMsg.style.color = '#ef4444';
+        wrapper.appendChild(errorMsg);
+      });
+    });
+
+    info.textContent = `เปิดทดสอบ ${videoInputs.length} กล้องเรียบร้อย (เลื่อนดูได้ถ้ามีหลายตัว)`;
 
   } catch (err) {
     console.error('ทดสอบกล้องล้มเหลว:', err);
-    if (err.name === 'NotAllowedError') {
-      alert('คุณยังไม่ได้อนุญาตให้เว็บเข้าถึงกล้อง กรุณาอนุญาตแล้วลองใหม่');
-    } else if (err.name === 'NotFoundError') {
-      alert('ไม่พบกล้องในระบบ กรุณาเสียบกล้องแล้วลองใหม่');
-    } else {
-      alert('เกิดข้อผิดพลาด: ' + err.message);
-    }
+    let msg = err.name === 'NotAllowedError' 
+      ? 'กรุณาอนุญาตให้เว็บเข้าถึงกล้องก่อน' 
+      : 'เกิดข้อผิดพลาดในการทดสอบกล้อง';
+    alert(msg);
   }
 }
 
-function closeCameraTestModal() {
-  const modal = document.getElementById('cameraTestModal');
-  const testCam1 = document.getElementById('testCam1');
-  const testCam2 = document.getElementById('testCam2');
+function closeCameraTestModal(hideModal = true) {
+  console.log('กำลังปิด modal ทดสอบกล้อง → หยุด stream ทั้งหมด');
 
-  // หยุด stream ทั้งสองตัว
-  if (window.testStreams) {
-    if (window.testStreams.stream1) {
-      window.testStreams.stream1.getTracks().forEach(track => track.stop());
-    }
-    if (window.testStreams.stream2) {
-      window.testStreams.stream2.getTracks().forEach(track => track.stop());
-    }
-    window.testStreams = null;
+  // หยุดทุก stream ที่เก็บไว้
+  if (testStreams && Array.isArray(testStreams)) {
+    testStreams.forEach((stream, index) => {
+      if (stream && typeof stream.getTracks === 'function') {
+        const tracks = stream.getTracks();
+        console.log(`กล้อง ${index + 1}: พบ ${tracks.length} tracks`);
+        tracks.forEach(track => {
+          if (track.enabled) {
+            track.stop();
+            console.log(`หยุด track ${track.kind} ของกล้อง ${index + 1} สำเร็จ`);
+          }
+        });
+      }
+    });
   }
 
-  testCam1.srcObject = null;
-  testCam2.srcObject = null;
-  testCam1.style.display = 'none';
-  testCam2.style.display = 'none';
-  modal.style.display = 'none';
+  // ล้าง array ให้สะอาด
+  testStreams = [];
+
+  // ล้าง container
+  const container = document.getElementById('testCamerasContainer');
+  if (container) {
+    container.innerHTML = '';
+    console.log('ล้าง container ทดสอบกล้องเรียบร้อย');
+  }
+
+  // ปิด modal
+  if (hideModal) {
+    const modal = document.getElementById('cameraTestModal');
+    if (modal) {
+      modal.style.display = 'none';
+      console.log('ปิด modal ทดสอบกล้องเรียบร้อย');
+    }
+  }
+
+  // เพิ่มการ double-check ว่าไม่มี stream ค้าง (optional แต่ช่วย debug)
+  setTimeout(() => {
+    console.log('หลังปิด 2 วินาที → ตรวจสอบว่า webcam ยัง active อยู่หรือไม่');
+  }, 2000);
 }
 
 function openClipModal(url1, url2, url3, url4, timehit, timestamps, round) {
   console.log('openClipModal called!', { url1, url2, url3, url4, timehit, round, timestampsLength: timestamps?.length });
-  const decodedUrl1 = url1 ? decodeURIComponent(url1) : '';
-  const decodedUrl2 = url2 ? decodeURIComponent(url2) : '';
-  const decodedUrl3 = url3 ? decodeURIComponent(url3) : '';
-  const decodedUrl4 = url4 ? decodeURIComponent(url4) : '';
+  const decodedUrl1 = url1 || '';
+  const decodedUrl2 = url2 || '';
+  const decodedUrl3 = url3 || '';
+  const decodedUrl4 = url4 || '';
   const decodedTimehit = decodeURIComponent(timehit || '00:00:00');
 
   const modal = document.getElementById('clipModal');
@@ -1348,25 +1527,20 @@ function seekTo(timehit) {
 }
 
     function closeClipModal() {
-      const modal = document.getElementById('clipModal');
-      const video1 = document.getElementById('clipVideo1');
-      const video2 = document.getElementById('clipVideo2');
-      const video3 = document.getElementById('clipVideo3');
-      const video4 = document.getElementById('clipVideo4');
-      video1.pause();
-      video2.pause();
-      video3.pause();
-      video4.pause();
-      video1.removeAttribute('src');
-      video2.removeAttribute('src');
-      video3.removeAttribute('src');
-      video4.removeAttribute('src');
-      video1.load();
-      video2.load();
-      video3.load();
-      video4.load();
-      modal.style.display = 'none';
+  const modal = document.getElementById('clipModal');
+  if (!modal) return;
+
+  ['clipVideo1','clipVideo2','clipVideo3','clipVideo4'].forEach(id => {
+    const video = document.getElementById(id);
+    if (video) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
     }
+  });
+
+  modal.style.display = 'none';
+}
 
     function hhmmssToSeconds(hhmmss) {
       const parts = hhmmss.split(':').map(Number);

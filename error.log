@@ -2718,3 +2718,42 @@
 {"level":"error","message":"Error saving datafight for schedulefight 30: Column count doesn't match value count at row 1","timestamp":"2026-02-27T11:06:54.841Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 30: Column count doesn't match value count at row 1","timestamp":"2026-02-27T11:08:37.821Z"}
 {"level":"error","message":"Error saving datafight for schedulefight 30: Column count doesn't match value count at row 1","timestamp":"2026-02-27T11:15:16.998Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:39:14.697Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:39:16.183Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:39:24.232Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:39:46.968Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:40:07.518Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:40:08.511Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:41:25.149Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:41:41.976Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-03-06T07:48:08.945Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:51:54.125Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM7: Unknown error code 433","timestamp":"2026-03-06T07:51:55.185Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:52:12.983Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:52:13.637Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM5: Unknown error code 433","timestamp":"2026-03-06T07:53:25.015Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM6: Unknown error code 433","timestamp":"2026-03-06T07:53:26.946Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM7: Unknown error code 433","timestamp":"2026-03-06T07:53:28.125Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-03-06T08:07:59.192Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Access denied","timestamp":"2026-03-10T09:04:17.599Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Access denied","timestamp":"2026-03-10T09:04:19.968Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Access denied","timestamp":"2026-03-10T09:04:20.737Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Access denied","timestamp":"2026-03-10T09:04:21.129Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Access denied","timestamp":"2026-03-10T09:04:21.306Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 31","timestamp":"2026-03-10T09:04:46.657Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM6: Unknown error code 433","timestamp":"2026-03-10T09:04:49.315Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-03-10T09:28:46.600Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 121","timestamp":"2026-03-10T14:25:49.961Z"}
+{"level":"error","message":"No data provided for datafight save","timestamp":"2026-03-10T14:32:39.718Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 121","timestamp":"2026-03-12T07:46:33.644Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:54:53.037Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM6: Unknown error code 121","timestamp":"2026-03-12T07:55:34.293Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:55:35.352Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:55:45.092Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:56:33.540Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM6: Unknown error code 121","timestamp":"2026-03-12T07:56:56.773Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:57:02.627Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM4: Unknown error code 1231","timestamp":"2026-03-12T07:58:35.045Z"}
+{"level":"error","message":"Port error Fighter1: Opening COM3: File not found","timestamp":"2026-03-12T08:00:29.815Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM3: File not found","timestamp":"2026-03-12T08:01:06.816Z"}
+{"level":"error","message":"Port error Fighter2: Opening COM3: File not found","timestamp":"2026-03-12T08:03:12.347Z"}
